@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "locale": "zh-CN",
+  "activeView": "smart_all",
+  "sortBy": "custom",
+  "preferredQuality": "192k",
+  "account": {
+    "loggedIn": false,
+    "nickname": "",
+    "mid": 0,
+    "level": 0,
+    "vip": false
+  },
+  "login": {
+    "phase": "expired",
+    "qrUrl": "",
+    "message": "登录二维码已过期，请点击重新获取。"
+  },
+  "playlists": [],
+  "tracks": [
+    {
+      "id": "tr_err",
+      "dedupeKey": "BV1xx411c7mD:p1",
+      "bvid": "BV1xx411c7mD",
+      "aid": 170001,
+      "cid": 279786,
+      "page": 1,
+      "totalPages": 1,
+      "title": "无法拉取音频的示例曲目",
+      "artist": "测试 UP 主",
+      "durationMs": 180000,
+      "favorite": false,
+      "addedAt": 1764100000
+    }
+  ],
+  "downloads": {},
+  "recentIds": [],
+  "queue": ["tr_err"],
+  "playback": {
+    "trackId": "tr_err",
+    "status": "error",
+    "positionMs": 0,
+    "durationMs": 180000,
+    "seekable": false,
+    "volume": 0.8,
+    "muted": false,
+    "mode": "sequence",
+    "qualityLabel": "",
+    "error": "未获得联网或音频播放权限，请在设置 → 插件中启用授权后重试。"
+  },
+  "importPreview": {
+    "status": "ready",
+    "input": "BV1invalid000",
+    "items": [],
+    "errors": ["BV1invalid000：未识别的 BV 号或链接"]
+  },
+  "notice": {
+    "kind": "error",
+    "message": "部分导入条目解析失败，可调整输入后重试。"
+  }
+}

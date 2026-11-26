@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 2,
+  "uiVersion": 2,
+  "id": "quailcrate.launcher",
+  "name": "应用快速启动",
+  "description": "Find and open installed apps.",
+  "icon": "search",
+  "localizations": {
+    "en-US": { "name": "Application Launcher" },
+    "zh-CN": { "name": "应用快速启动", "description": "查找并打开已安装的应用。" }
+  },
+  "version": "0.1.0",
+  "runtime": "lua",
+  "entry": "plugin.lua",
+  "hostApiVersion": 2,
+  "contributes": ["launcher", "search", "commands"],
+  "permissions": ["apps.read", "apps.launch"]
+}

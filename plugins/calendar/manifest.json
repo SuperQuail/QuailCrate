@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 2,
+  "id": "quailcrate.calendar",
+  "name": "桌面月历",
+  "description": "View today's date and browse months.",
+  "icon": "calendar",
+  "localizations": {
+    "en-US": { "name": "Desktop Calendar" },
+    "zh-CN": { "name": "桌面月历", "description": "在桌面查看今天的日期和每月日历。" }
+  },
+  "version": "0.1.0",
+  "runtime": "lua",
+  "entry": "plugin.lua",
+  "hostApiVersion": 2,
+  "uiVersion": 2,
+  "contributes": ["widgets"],
+  "provides": [{"id":"quailcrate.calendar.month","version":"1.0.0","methods":["describe"]}],
+  "permissions": []
+}

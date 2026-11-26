@@ -1,0 +1,43 @@
+name: QuailEgg release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.changes/**'
+      - '.quailegg.toml'
+      - '.quailegg/pre-release.lock'
+      - '.quailegg/release.json'
+      - 'CHANGELOG.md'
+      - 'go.mod'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: qegg-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-windows
+      - name: Install QuailEgg
+        run: go install github.com/SuperQuail/QuailEgg/cmd/qegg@v0.15.0
+      - name: Configure release author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Run QuailEgg
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: qegg release --yes

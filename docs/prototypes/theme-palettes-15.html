@@ -1,0 +1,2409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QuailCrate · 15 套重塑配色方案 & 基础样式预览</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --font-ui: "Microsoft YaHei UI", "Segoe UI Variable Text", "Segoe UI", "PingFang SC", system-ui, sans-serif;
+      --font-mono: "Cascadia Mono", "JetBrains Mono", Consolas, ui-monospace, monospace;
+      /* 评审工作台壳层（中性深灰，不干扰所选主题的观感判断） */
+      --shell-bg: #0B0C10;
+      --shell-panel: #12141A;
+      --shell-card: #171921;
+      --shell-line: rgba(255, 255, 255, 0.08);
+      --shell-text: #ECEEF4;
+      --shell-sub: #8E95A6;
+      --shell-accent: #9DA8F8;
+    }
+
+    html, body {
+      min-height: 100%;
+      background: var(--shell-bg);
+      color: var(--shell-text);
+      font-family: var(--font-ui);
+      font-size: 13px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* 顶部评审工具条 */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: rgba(11, 12, 16, 0.86);
+      backdrop-filter: blur(18px);
+      border-bottom: 1px solid var(--shell-line);
+      padding: 12px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .brand-title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand-badge {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 5px;
+      background: rgba(157, 168, 248, 0.14);
+      color: #BCC4FF;
+      border: 1px solid rgba(157, 168, 248, 0.24);
+    }
+    .brand-hint {
+      font-size: 12px;
+      color: var(--shell-sub);
+    }
+
+    .topbar-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .filter-group {
+      display: inline-flex;
+      background: var(--shell-panel);
+      border: 1px solid var(--shell-line);
+      border-radius: 8px;
+      padding: 3px;
+      gap: 2px;
+    }
+    .filter-btn {
+      border: none;
+      background: transparent;
+      color: var(--shell-sub);
+      font-family: var(--font-ui);
+      font-size: 11.5px;
+      padding: 5px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.14s ease;
+    }
+    .filter-btn:hover {
+      color: var(--shell-text);
+    }
+    .filter-btn.active {
+      background: rgba(255, 255, 255, 0.10);
+      color: #fff;
+      font-weight: 600;
+    }
+    .shell-btn {
+      height: 30px;
+      padding: 0 11px;
+      border-radius: 8px;
+      border: 1px solid var(--shell-line);
+      background: var(--shell-card);
+      color: var(--shell-text);
+      font-family: var(--font-ui);
+      font-size: 11.5px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.14s ease;
+    }
+    .shell-btn:hover {
+      border-color: rgba(255, 255, 255, 0.22);
+      background: #20232E;
+    }
+    .shell-btn.primary {
+      background: #E8ECFF;
+      color: #101320;
+      border-color: transparent;
+      font-weight: 600;
+    }
+    .shell-btn.primary:hover {
+      background: #FFFFFF;
+    }
+    .shell-btn.toggle-on {
+      border-color: rgba(157, 168, 248, 0.55);
+      background: rgba(157, 168, 248, 0.14);
+      color: #D2D8FF;
+    }
+
+    /* 主布局：左侧 15 套卡片总览 + 右侧固定实时大预览 */
+    .layout {
+      max-width: 1640px;
+      margin: 0 auto;
+      padding: 18px 22px 36px;
+      display: grid;
+      grid-template-columns: minmax(440px, 1.02fr) minmax(560px, 1.18fr);
+      gap: 20px;
+      align-items: start;
+    }
+    @media (max-width: 1180px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      .preview-sticky {
+        position: static !important;
+      }
+    }
+
+    /* 左侧分组和 15 张主题卡 */
+    .section-group {
+      margin-bottom: 18px;
+    }
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      padding: 0 2px;
+    }
+    .section-title {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #D7DCE8;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .section-sub {
+      font-size: 11px;
+      color: var(--shell-sub);
+    }
+
+    .palette-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    @media (max-width: 640px) {
+      .palette-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .p-card {
+      border-radius: 12px;
+      padding: 11px 12px;
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.14s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      border: 1px solid var(--c-border-soft);
+      background: var(--c-bg);
+      color: var(--c-text);
+      overflow: hidden;
+    }
+    .p-card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px -10px rgba(0, 0, 0, 0.55);
+      border-color: var(--c-accent-45);
+    }
+    .p-card.active {
+      border-color: var(--c-accent);
+      box-shadow:
+        0 0 0 1px var(--c-accent),
+        0 14px 32px -12px rgba(0, 0, 0, 0.65);
+    }
+    .p-card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .p-card-title-wrap {
+      min-width: 0;
+    }
+    .p-card-top-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 2px;
+    }
+    .p-num {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      opacity: 0.68;
+      color: var(--c-secondary);
+    }
+    .p-tag {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: var(--c-accent-16);
+      color: var(--c-accent);
+      letter-spacing: 0.03em;
+    }
+    .p-mode-pill {
+      font-size: 9.5px;
+      color: var(--c-secondary);
+      opacity: 0.85;
+    }
+    .p-name {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--c-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .p-en {
+      font-size: 11px;
+      color: var(--c-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 1px;
+    }
+    .fav-btn {
+      width: 26px;
+      height: 26px;
+      border-radius: 7px;
+      border: 1px solid var(--c-border-soft);
+      background: var(--c-surface);
+      color: var(--c-secondary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.14s ease;
+    }
+    .fav-btn:hover {
+      border-color: var(--c-accent);
+      color: var(--c-accent);
+    }
+    .fav-btn.faved {
+      background: var(--c-accent);
+      border-color: var(--c-accent);
+      color: var(--c-on-accent);
+    }
+
+    /* 卡片内迷你 UI 缩略图 */
+    .mini-ui {
+      height: 60px;
+      border-radius: 8px;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 54px 1fr;
+      border: 1px solid var(--c-border-soft);
+      background: var(--c-surface);
+    }
+    .mini-side {
+      background: var(--c-sidebar);
+      border-right: 1px solid var(--c-border-soft);
+      padding: 7px 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .mini-nav {
+      height: 7px;
+      border-radius: 3px;
+      background: var(--c-hover);
+      width: 78%;
+    }
+    .mini-nav.act {
+      width: 100%;
+      background: var(--c-selected);
+      border-left: 2px solid var(--c-accent);
+    }
+    .mini-body {
+      padding: 7px 9px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .mini-row-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .mini-heading {
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--c-text);
+    }
+    .mini-pill {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 99px;
+      background: var(--c-accent);
+      color: var(--c-on-accent);
+    }
+    .mini-bars {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .mini-track {
+      flex: 1;
+      height: 4px;
+      border-radius: 99px;
+      background: var(--c-hover);
+      overflow: hidden;
+    }
+    .mini-track-fill {
+      width: 62%;
+      height: 100%;
+      border-radius: 99px;
+      background: var(--c-accent);
+    }
+    .mini-dot-w {
+      width: 6px;
+      height: 6px;
+      border-radius: 99px;
+      background: var(--c-weekend);
+    }
+    .mini-dot-err {
+      width: 6px;
+      height: 6px;
+      border-radius: 99px;
+      background: var(--c-warning);
+    }
+
+    /* 卡片底部色票条 */
+    .p-swatches {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .swatch-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .sw {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      border: 1px solid rgba(128, 128, 128, 0.28);
+    }
+    .p-note {
+      font-size: 10.5px;
+      color: var(--c-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* 右侧固定实时预览舞台 */
+    .preview-sticky {
+      position: sticky;
+      top: 68px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .preview-header {
+      background: var(--shell-panel);
+      border: 1px solid var(--shell-line);
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .preview-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .preview-title-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .preview-title-line h2 {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .preview-desc {
+      font-size: 11.5px;
+      color: var(--shell-sub);
+    }
+    .preview-tabs {
+      display: inline-flex;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--shell-line);
+      border-radius: 8px;
+      padding: 3px;
+      gap: 2px;
+    }
+    .ptab {
+      border: none;
+      background: transparent;
+      color: var(--shell-sub);
+      font-family: var(--font-ui);
+      font-size: 11.5px;
+      padding: 5px 11px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.14s ease;
+    }
+    .ptab:hover {
+      color: #fff;
+    }
+    .ptab.active {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    /* =========================================================================
+       实时主题变量挂载容器（支持新版柔和样式 & 旧版硬边框对比）
+       ========================================================================= */
+    .stage-frame {
+      border-radius: 14px;
+      padding: 18px;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--shell-line);
+      background:
+        radial-gradient(circle at 16% 18%, var(--t-accent-16), transparent 46%),
+        radial-gradient(circle at 86% 82%, var(--t-weekend-14), transparent 48%),
+        var(--t-stage-bg);
+      transition: background 0.22s ease;
+    }
+
+    /* 1. 音乐插件窗口实时预览（新版基础样式） */
+    .music-win {
+      width: 100%;
+      border-radius: 12px;
+      background: var(--t-bg);
+      color: var(--t-text);
+      border: 1px solid var(--t-hairline-strong);
+      box-shadow: var(--t-win-shadow);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: all 0.2s ease;
+    }
+    /* 旧版硬边框对比模式（让用户直观感受“改基础样式”前后的巨大差异） */
+    .legacy-style .music-win {
+      border: 1px solid var(--t-border);
+      box-shadow: 0 20px 44px rgba(0, 0, 0, 0.55);
+    }
+    .legacy-style .m-titlebar,
+    .legacy-style .m-sidebar,
+    .legacy-style .m-hero,
+    .legacy-style .m-player,
+    .legacy-style .m-search,
+    .legacy-style .m-account,
+    .legacy-style .m-btn-ghost,
+    .legacy-style .m-auth-pill {
+      border-color: var(--t-border) !important;
+    }
+    .legacy-style .m-nav.active {
+      background: var(--t-legacy-selected) !important;
+      border: 1px solid var(--t-border) !important;
+    }
+    .legacy-style .m-track:hover {
+      background: var(--t-legacy-hover) !important;
+    }
+    .legacy-style .m-track.playing {
+      background: var(--t-legacy-selected) !important;
+      border-color: var(--t-border) !important;
+    }
+
+    .m-titlebar {
+      height: 36px;
+      background: var(--t-sidebar);
+      border-bottom: 1px solid var(--t-hairline);
+      padding: 0 8px 0 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .m-tb-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .m-tb-bar {
+      width: 3px;
+      height: 13px;
+      border-radius: 2px;
+      background: var(--t-accent);
+    }
+    .m-tb-sub {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--t-secondary);
+      font-weight: 500;
+    }
+    .m-tb-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .m-auth-pill {
+      height: 23px;
+      padding: 0 9px;
+      border-radius: 99px;
+      border: 1px solid var(--t-hairline);
+      background: var(--t-surface);
+      color: var(--t-text);
+      font-size: 11px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .m-dot-online {
+      width: 6px;
+      height: 6px;
+      border-radius: 99px;
+      background: #34D399;
+      box-shadow: 0 0 6px rgba(52, 211, 153, 0.55);
+    }
+    .m-win-dots {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding-left: 4px;
+    }
+    .m-win-dots span {
+      width: 24px;
+      height: 22px;
+      border-radius: 5px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--t-secondary);
+      font-size: 11px;
+    }
+
+    .m-body {
+      display: grid;
+      grid-template-columns: 186px 1fr;
+      min-height: 368px;
+    }
+    @media (max-width: 720px) {
+      .m-body {
+        grid-template-columns: 1fr;
+      }
+      .m-sidebar {
+        display: none !important;
+      }
+    }
+
+    .m-sidebar {
+      background: var(--t-sidebar);
+      border-right: 1px solid var(--t-hairline);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .m-search {
+      height: 30px;
+      border-radius: 8px;
+      border: 1px solid var(--t-hairline);
+      background: var(--t-surface);
+      color: var(--t-secondary);
+      padding: 0 10px;
+      font-size: 11.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .m-nav-label {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      letter-spacing: 0.08em;
+      color: var(--t-secondary);
+      opacity: 0.78;
+      padding: 6px 8px 2px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .m-nav {
+      height: 32px;
+      border-radius: 8px;
+      padding: 0 9px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--t-secondary);
+      border: 1px solid transparent;
+      transition: all 0.14s ease;
+    }
+    .m-nav:hover {
+      background: var(--t-hover);
+      color: var(--t-text);
+    }
+    .m-nav.active {
+      background: var(--t-selected);
+      color: var(--t-text);
+      font-weight: 600;
+      position: relative;
+    }
+    .m-nav.active::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 7px;
+      bottom: 7px;
+      width: 3px;
+      border-radius: 2px;
+      background: var(--t-accent);
+    }
+    .m-nav-left {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+    }
+    .m-pl-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .m-nav-cnt {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--t-secondary);
+      opacity: 0.8;
+    }
+    .m-nav.active .m-nav-cnt {
+      color: var(--t-accent);
+      opacity: 1;
+    }
+    .m-spacer {
+      flex: 1;
+    }
+    .m-account {
+      margin-top: 6px;
+      padding: 8px 9px;
+      border-radius: 9px;
+      background: var(--t-surface);
+      border: 1px solid var(--t-hairline);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .m-avatar {
+      width: 26px;
+      height: 26px;
+      border-radius: 7px;
+      background: linear-gradient(135deg, var(--t-accent), var(--t-weekend));
+      color: var(--t-on-accent);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .m-acc-info {
+      min-width: 0;
+    }
+    .m-acc-name {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--t-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .m-acc-sub {
+      font-size: 10px;
+      color: var(--t-secondary);
+    }
+
+    /* 右侧歌单内容区 */
+    .m-main {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      background: var(--t-bg);
+    }
+    .m-hero {
+      padding: 16px 20px 14px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      background: linear-gradient(180deg, var(--t-hero-tint) 0%, transparent 100%);
+      border-bottom: 1px solid var(--t-hairline);
+    }
+    .m-cover {
+      width: 74px;
+      height: 74px;
+      border-radius: 12px;
+      flex-shrink: 0;
+      background: linear-gradient(135deg, var(--t-accent) 0%, var(--t-weekend) 100%);
+      box-shadow: 0 10px 24px -8px var(--t-accent-45), inset 0 1px 0 rgba(255, 255, 255, 0.32);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--t-on-accent);
+    }
+    .m-hero-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .m-kicker {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--t-accent);
+      margin-bottom: 3px;
+    }
+    .m-h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--t-text);
+      letter-spacing: -0.015em;
+    }
+    .m-hsub {
+      font-size: 11.5px;
+      color: var(--t-secondary);
+      margin-top: 2px;
+    }
+    .m-actions {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .m-btn-primary {
+      height: 29px;
+      padding: 0 13px;
+      border-radius: 8px;
+      border: none;
+      background: var(--t-accent);
+      color: var(--t-on-accent);
+      font-family: var(--font-ui);
+      font-size: 11.5px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+    }
+    .m-btn-tonal {
+      height: 29px;
+      padding: 0 11px;
+      border-radius: 8px;
+      border: 1px solid var(--t-accent-28);
+      background: var(--t-accent-12);
+      color: var(--t-accent);
+      font-family: var(--font-ui);
+      font-size: 11.5px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+    }
+    .m-btn-ghost {
+      height: 29px;
+      padding: 0 10px;
+      border-radius: 8px;
+      border: 1px solid var(--t-hairline);
+      background: var(--t-surface);
+      color: var(--t-text);
+      font-family: var(--font-ui);
+      font-size: 11.5px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+    }
+
+    /* 曲目列表 */
+    .m-list {
+      padding: 8px 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+    }
+    .m-list-head {
+      display: grid;
+      grid-template-columns: 28px 1fr 94px 44px;
+      gap: 8px;
+      padding: 4px 10px 6px;
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      color: var(--t-secondary);
+      opacity: 0.72;
+      letter-spacing: 0.05em;
+    }
+    .m-track {
+      display: grid;
+      grid-template-columns: 28px 1fr 94px 44px;
+      gap: 8px;
+      align-items: center;
+      padding: 7px 10px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      transition: background 0.12s ease;
+    }
+    .m-track:hover {
+      background: var(--t-hover);
+    }
+    .m-track.playing {
+      background: var(--t-selected);
+      border-color: var(--t-accent-24);
+    }
+    .m-idx {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--t-secondary);
+      text-align: center;
+    }
+    .m-track.playing .m-idx {
+      color: var(--t-accent);
+      font-weight: 700;
+    }
+    .m-tmeta {
+      min-width: 0;
+    }
+    .m-ttitle {
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--t-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .m-track.playing .m-ttitle {
+      color: var(--t-accent);
+      font-weight: 600;
+    }
+    .m-tartist {
+      font-size: 10.5px;
+      color: var(--t-secondary);
+      margin-top: 1px;
+    }
+    .m-bv {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--t-secondary);
+      padding: 2px 6px;
+      border-radius: 5px;
+      background: var(--t-surface);
+      border: 1px solid var(--t-hairline);
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .m-dur {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--t-secondary);
+      text-align: right;
+    }
+
+    /* 底部播放器栏 */
+    .m-player {
+      height: 58px;
+      background: var(--t-surface);
+      border-top: 1px solid var(--t-hairline);
+      padding: 0 16px;
+      display: grid;
+      grid-template-columns: 1.1fr 1.3fr 0.8fr;
+      align-items: center;
+      gap: 12px;
+    }
+    .m-now {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 0;
+    }
+    .m-now-art {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--t-accent), var(--t-weekend));
+      flex-shrink: 0;
+    }
+    .m-now-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--t-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .m-now-sub {
+      font-size: 10.5px;
+      color: var(--t-secondary);
+    }
+    .m-ctrl-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+    .m-ctrl-btns {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--t-secondary);
+      font-size: 11px;
+    }
+    .m-play-circle {
+      width: 26px;
+      height: 26px;
+      border-radius: 99px;
+      background: var(--t-accent);
+      color: var(--t-on-accent);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .m-prog-row {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      color: var(--t-secondary);
+    }
+    .m-prog {
+      flex: 1;
+      height: 4px;
+      border-radius: 99px;
+      background: var(--t-hover-strong);
+      position: relative;
+      overflow: hidden;
+    }
+    .m-prog-fill {
+      width: 44%;
+      height: 100%;
+      border-radius: 99px;
+      background: var(--t-accent);
+    }
+    .m-vol {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 7px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--t-secondary);
+    }
+    .m-vol-bar {
+      width: 58px;
+      height: 4px;
+      border-radius: 99px;
+      background: var(--t-hover-strong);
+      overflow: hidden;
+    }
+    .m-vol-fill {
+      width: 72%;
+      height: 100%;
+      border-radius: 99px;
+      background: var(--t-text);
+      opacity: 0.72;
+    }
+
+    /* 2. 设置面板 + 空间毛玻璃桌面组件预览 */
+    .desk-preview {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .wallpaper-box {
+      border-radius: 12px;
+      padding: 18px;
+      position: relative;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 22% 28%, rgba(74, 152, 245, 0.42), transparent 48%),
+        radial-gradient(circle at 78% 70%, rgba(182, 114, 248, 0.38), transparent 50%),
+        linear-gradient(135deg, #0D1B30 0%, #162D48 52%, #291E46 100%);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 14px;
+      align-items: center;
+    }
+    @media (max-width: 680px) {
+      .wallpaper-box {
+        grid-template-columns: 1fr;
+      }
+    }
+    .spatial-widget {
+      border-radius: 14px;
+      padding: 14px 15px;
+      background: var(--t-glass-fill);
+      backdrop-filter: blur(28px) saturate(180%);
+      border: 1px solid var(--t-glass-rim);
+      box-shadow:
+        0 18px 42px -12px rgba(0, 0, 0, 0.56),
+        inset 0 1px 0 0 var(--t-glass-spec);
+      color: var(--t-text);
+    }
+    .sw-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .sw-title {
+      font-size: 12.5px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .sw-title::before {
+      content: "";
+      width: 3px;
+      height: 12px;
+      border-radius: 2px;
+      background: var(--t-accent);
+    }
+    .sw-meta {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--t-secondary);
+    }
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+    .cal-dow {
+      font-size: 9.5px;
+      color: var(--t-secondary);
+      padding-bottom: 3px;
+    }
+    .cal-day {
+      height: 24px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--t-text);
+    }
+    .cal-day.wk {
+      color: var(--t-weekend);
+    }
+    .cal-day.today {
+      background: var(--t-accent);
+      color: var(--t-on-accent);
+      font-weight: 700;
+    }
+    .mini-player-widget {
+      border-radius: 14px;
+      padding: 13px 14px;
+      background: var(--t-glass-fill);
+      backdrop-filter: blur(28px) saturate(180%);
+      border: 1px solid var(--t-glass-rim);
+      box-shadow:
+        0 18px 42px -12px rgba(0, 0, 0, 0.56),
+        inset 0 1px 0 0 var(--t-glass-spec);
+      color: var(--t-text);
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+    .settings-card-demo {
+      border-radius: 12px;
+      padding: 14px 16px;
+      background: var(--t-bg);
+      border: 1px solid var(--t-hairline-strong);
+      color: var(--t-text);
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+    }
+    .sc-inner {
+      border-radius: 10px;
+      padding: 12px 14px;
+      background: var(--t-surface);
+      border: 1px solid var(--t-hairline);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .sc-badges {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      flex-wrap: wrap;
+    }
+    .sc-chip {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 7px;
+      border: 1px solid var(--t-hairline);
+      background: var(--t-elevated);
+      color: var(--t-text);
+    }
+    .sc-chip.sel {
+      background: var(--t-selected);
+      border-color: var(--t-accent-45);
+      color: var(--t-accent);
+      font-weight: 600;
+    }
+    .sc-chip.warn {
+      background: var(--t-warning-bg);
+      border-color: transparent;
+      color: var(--t-warning);
+      font-weight: 600;
+    }
+
+    /* 3. Token 色值明细 + 旧版对比 */
+    .token-panel {
+      background: var(--t-bg);
+      color: var(--t-text);
+      border-radius: 12px;
+      border: 1px solid var(--t-hairline-strong);
+      padding: 15px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .token-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    @media (max-width: 640px) {
+      .token-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    .tok-item {
+      padding: 8px 10px;
+      border-radius: 9px;
+      background: var(--t-surface);
+      border: 1px solid var(--t-hairline);
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      cursor: pointer;
+      transition: border-color 0.14s ease;
+    }
+    .tok-item:hover {
+      border-color: var(--t-accent);
+    }
+    .tok-box {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      border: 1px solid rgba(128, 128, 128, 0.25);
+      flex-shrink: 0;
+    }
+    .tok-name {
+      font-size: 11px;
+      color: var(--t-secondary);
+    }
+    .tok-hex {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--t-text);
+    }
+    .old-compare {
+      border-top: 1px solid var(--t-hairline);
+      padding-top: 12px;
+    }
+    .old-compare-title {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--t-secondary);
+      margin-bottom: 8px;
+    }
+    .old-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 7px;
+    }
+    .old-chip {
+      border-radius: 8px;
+      padding: 7px 9px;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* 底部快捷键 & 选中摘要条 */
+    .preview-footer {
+      background: var(--shell-panel);
+      border: 1px solid var(--shell-line);
+      border-radius: 10px;
+      padding: 9px 13px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-size: 11.5px;
+      color: var(--shell-sub);
+    }
+    .kbd {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #E2E6F0;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 22px;
+      left: 50%;
+      transform: translateX(-50%) translateY(16px);
+      background: #1C2030;
+      color: #F4F6FF;
+      border: 1px solid rgba(157, 168, 248, 0.45);
+      border-radius: 9px;
+      padding: 8px 14px;
+      font-size: 12px;
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.18s ease;
+      z-index: 80;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="brand-title">
+        <span>QuailCrate 15 套重塑配色</span>
+        <span class="brand-badge">PALETTE STUDIO</span>
+      </div>
+      <span class="brand-hint">点击左侧任意配色即可在右侧音乐窗口 &amp; 空间毛玻璃桌面实时预览 · 点 ★ 收藏心仪方案</span>
+    </div>
+    <div class="topbar-controls">
+      <div class="filter-group" id="filterGroup">
+        <button class="filter-btn active" data-filter="all">全部 (15)</button>
+        <button class="filter-btn" data-filter="neutral">旗舰中性暗 (4)</button>
+        <button class="filter-btn" data-filter="mood">氛围艺术暗 (7)</button>
+        <button class="filter-btn" data-filter="light">通透现代浅 (4)</button>
+        <button class="filter-btn" data-filter="fav">已收藏 (<span id="favCount">1</span>)</button>
+      </div>
+      <button class="shell-btn toggle-on" id="styleModeBtn" title="切换新版柔和发丝线基础样式 vs 旧版硬边框样式">
+        <span id="styleModeDot">●</span>
+        <span id="styleModeText">新版基础样式（柔和发丝线）</span>
+      </button>
+      <button class="shell-btn primary" id="copyPicksBtn">复制已收藏方案</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- 左侧：15 套主题卡片分组列表 -->
+    <section id="cardsContainer"></section>
+
+    <!-- 右侧：实时大预览 -->
+    <aside class="preview-sticky">
+      <div class="preview-header">
+        <div class="preview-meta">
+          <div class="preview-title-line">
+            <h2 id="prevTitle">01 · 摩卡暗夜</h2>
+            <span class="brand-badge" id="prevTag">MOCHA</span>
+            <span class="brand-hint" id="prevEn">Catppuccin Mocha</span>
+          </div>
+          <div class="preview-desc" id="prevDesc">经典标杆保留并微调层次：低饱和炭紫夜色 + 柔薰衣草紫强调</div>
+        </div>
+        <div class="preview-tabs" id="previewTabs">
+          <button class="ptab active" data-tab="music">音乐插件窗口</button>
+          <button class="ptab" data-tab="desktop">设置 + 空间毛玻璃</button>
+          <button class="ptab" data-tab="tokens">色值 &amp; 旧版对比</button>
+        </div>
+      </div>
+
+      <div class="stage-frame" id="stageFrame">
+        <!-- TAB 1: 音乐插件窗口预览 -->
+        <div id="tab-music">
+          <div class="music-win">
+            <div class="m-titlebar">
+              <div class="m-tb-left">
+                <span class="m-tb-bar"></span>
+                <span>音乐</span>
+                <span class="m-tb-sub">music · bilibili</span>
+              </div>
+              <div class="m-tb-right">
+                <div class="m-auth-pill">
+                  <span class="m-dot-online"></span>
+                  <span>阿鹌的耳机 · 大会员</span>
+                </div>
+                <div class="m-win-dots">
+                  <span>─</span>
+                  <span>□</span>
+                  <span>×</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="m-body">
+              <div class="m-sidebar">
+                <div class="m-search">
+                  <span>⌕</span>
+                  <span>搜索曲目、UP 主、BV 号</span>
+                </div>
+                <div class="m-nav-label"><span>LIBRARY</span></div>
+                <div class="m-nav">
+                  <div class="m-nav-left"><span>♪</span><span>全部曲目</span></div>
+                  <span class="m-nav-cnt">42</span>
+                </div>
+                <div class="m-nav">
+                  <div class="m-nav-left"><span>♡</span><span>我喜欢的</span></div>
+                  <span class="m-nav-cnt">18</span>
+                </div>
+                <div class="m-nav">
+                  <div class="m-nav-left"><span>◷</span><span>最近播放</span></div>
+                  <span class="m-nav-cnt">12</span>
+                </div>
+
+                <div class="m-nav-label">
+                  <span>PLAYLISTS</span>
+                  <span style="font-size:12px;">+</span>
+                </div>
+                <div class="m-nav active">
+                  <div class="m-nav-left">
+                    <span class="m-pl-dot" id="plDot1"></span>
+                    <span>深夜编码 Lo-Fi</span>
+                  </div>
+                  <span class="m-nav-cnt">16</span>
+                </div>
+                <div class="m-nav">
+                  <div class="m-nav-left">
+                    <span class="m-pl-dot" id="plDot2"></span>
+                    <span>B 站翻唱宝藏</span>
+                  </div>
+                  <span class="m-nav-cnt">14</span>
+                </div>
+                <div class="m-nav">
+                  <div class="m-nav-left">
+                    <span class="m-pl-dot" id="plDot3"></span>
+                    <span>ACG 管弦精选</span>
+                  </div>
+                  <span class="m-nav-cnt">12</span>
+                </div>
+
+                <div class="m-spacer"></div>
+                <div class="m-account">
+                  <div class="m-avatar">BL</div>
+                  <div class="m-acc-info">
+                    <div class="m-acc-name">哔哩哔哩已登录</div>
+                    <div class="m-acc-sub">无损 FLAC / Hi-Res</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="m-main">
+                <div class="m-hero">
+                  <div class="m-cover">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M9 18V5l12-2v13"></path>
+                      <circle cx="6" cy="18" r="3"></circle>
+                      <circle cx="18" cy="16" r="3"></circle>
+                    </svg>
+                  </div>
+                  <div class="m-hero-info">
+                    <div class="m-kicker">PLAYLIST · BILIBILI DASH AUDIO</div>
+                    <div class="m-h1">深夜编码 Lo-Fi</div>
+                    <div class="m-hsub">写代码专用低干扰器乐与雨夜电音 · 16 首 · 58 分钟</div>
+                    <div class="m-actions">
+                      <button class="m-btn-primary">▶ 播放全部</button>
+                      <button class="m-btn-tonal">+ 导入 BV / 链接</button>
+                      <button class="m-btn-ghost">✎ 编辑歌单</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="m-list">
+                  <div class="m-list-head">
+                    <span style="text-align:center;">#</span>
+                    <span>曲目 / UP 主</span>
+                    <span>来源</span>
+                    <span style="text-align:right;">时长</span>
+                  </div>
+                  <div class="m-track playing">
+                    <div class="m-idx">▮▮</div>
+                    <div class="m-tmeta">
+                      <div class="m-ttitle">Rainy Window in Kyoto (Hi-Res Mix)</div>
+                      <div class="m-tartist">深夜唱片店 · FLAC 24bit</div>
+                    </div>
+                    <div class="m-bv">BV1xx411c7mD</div>
+                    <div class="m-dur">03:48</div>
+                  </div>
+                  <div class="m-track">
+                    <div class="m-idx">02</div>
+                    <div class="m-tmeta">
+                      <div class="m-ttitle">星屑の夜想曲 · 钢琴独奏版</div>
+                      <div class="m-tartist">白键与海 · P2/5</div>
+                    </div>
+                    <div class="m-bv">BV1GJ411x7h7</div>
+                    <div class="m-dur">04:15</div>
+                  </div>
+                  <div class="m-track">
+                    <div class="m-idx">03</div>
+                    <div class="m-tmeta">
+                      <div class="m-ttitle">Analog Drift · 模拟合成器白噪音</div>
+                      <div class="m-tartist">TapeLab 磁带社</div>
+                    </div>
+                    <div class="m-bv">BV1Q541167Qg</div>
+                    <div class="m-dur">05:02</div>
+                  </div>
+                  <div class="m-track">
+                    <div class="m-idx">04</div>
+                    <div class="m-tmeta">
+                      <div class="m-ttitle">夏末车站与末班电车（纯音乐）</div>
+                      <div class="m-tartist">铁道录音室</div>
+                    </div>
+                    <div class="m-bv">BV1fK4y1t7hj</div>
+                    <div class="m-dur">03:27</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="m-player">
+              <div class="m-now">
+                <div class="m-now-art"></div>
+                <div style="min-width:0;">
+                  <div class="m-now-title">Rainy Window in Kyoto</div>
+                  <div class="m-now-sub">深夜唱片店 · 192kbps AAC</div>
+                </div>
+              </div>
+              <div class="m-ctrl-col">
+                <div class="m-ctrl-btns">
+                  <span>⇄</span>
+                  <span>⏮</span>
+                  <span class="m-play-circle">❚❚</span>
+                  <span>⏭</span>
+                  <span>↻</span>
+                </div>
+                <div class="m-prog-row">
+                  <span>01:40</span>
+                  <div class="m-prog"><div class="m-prog-fill"></div></div>
+                  <span>03:48</span>
+                </div>
+              </div>
+              <div class="m-vol">
+                <span>🔊</span>
+                <div class="m-vol-bar"><div class="m-vol-fill"></div></div>
+                <span>队列 16</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: 设置面板 + 空间毛玻璃桌面组件预览 -->
+        <div id="tab-desktop" class="desk-preview hidden">
+          <div class="wallpaper-box">
+            <div class="spatial-widget">
+              <div class="sw-head">
+                <div class="sw-title">2026 年 11 月</div>
+                <div class="sw-meta">W48 · 空间毛玻璃</div>
+              </div>
+              <div class="cal-grid">
+                <div class="cal-dow">一</div><div class="cal-dow">二</div><div class="cal-dow">三</div>
+                <div class="cal-dow">四</div><div class="cal-dow">五</div><div class="cal-dow">六</div><div class="cal-dow">日</div>
+                <div class="cal-day">16</div><div class="cal-day">17</div><div class="cal-day">18</div>
+                <div class="cal-day">19</div><div class="cal-day">20</div><div class="cal-day wk">21</div><div class="cal-day wk">22</div>
+                <div class="cal-day">23</div><div class="cal-day">24</div><div class="cal-day">25</div>
+                <div class="cal-day today">26</div><div class="cal-day">27</div><div class="cal-day wk">28</div><div class="cal-day wk">29</div>
+              </div>
+            </div>
+
+            <div class="mini-player-widget">
+              <div class="sw-head" style="margin-bottom:0;">
+                <div class="sw-title">桌面迷你播放器</div>
+                <div class="sw-meta">FLAC</div>
+              </div>
+              <div>
+                <div style="font-size:13px;font-weight:700;">Rainy Window in Kyoto</div>
+                <div style="font-size:11px;color:var(--t-secondary);margin-top:2px;">深夜唱片店 · BV1xx411c7mD</div>
+              </div>
+              <div class="m-prog" style="height:5px;"><div class="m-prog-fill" style="width:54%;"></div></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <span style="font-family:var(--font-mono);font-size:10px;color:var(--t-secondary);">01:40 / 03:48</span>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="color:var(--t-secondary);">⏮</span>
+                  <span class="m-play-circle" style="width:24px;height:24px;font-size:10px;">❚❚</span>
+                  <span style="color:var(--t-secondary);">⏭</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-card-demo">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <div>
+                <div style="font-size:13.5px;font-weight:700;">外观设置卡片预览</div>
+                <div style="font-size:11.5px;color:var(--t-secondary);margin-top:2px;">验证 Background / Surface / Elevated / Accent / Warning 层级是否舒服</div>
+              </div>
+              <button class="m-btn-primary">保存外观</button>
+            </div>
+            <div class="sc-inner">
+              <div class="sc-badges">
+                <span class="sc-chip sel">已选中状态 Selected</span>
+                <span class="sc-chip">默认按钮 Surface</span>
+                <span class="sc-chip warn">警示 / 删除 Warning</span>
+              </div>
+              <span style="font-family:var(--font-mono);font-size:11px;color:var(--t-weekend);">周末 / 辅色 Accent2</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: Token 明细 & 旧版 6 套对比 -->
+        <div id="tab-tokens" class="token-panel hidden">
+          <div>
+            <div style="font-size:13px;font-weight:700;margin-bottom:3px;">当前配色完整语义色值（点击任意色块复制 Hex）</div>
+            <div style="font-size:11.5px;color:var(--t-secondary);">可直接映射到 internal/theme/theme.go 的 Palette 结构</div>
+          </div>
+          <div class="token-grid" id="tokenGrid"></div>
+
+          <div class="old-compare">
+            <div class="old-compare-title">对比：现有旧版 6 套配色的问题所在（为什么只有摩卡暗夜顺眼）</div>
+            <div class="old-row">
+              <div class="old-chip" style="background:#0B140F;border:1px solid #1B3B2A;color:#DCFCE7;">
+                <span>矩阵荧光</span><span style="color:#22C55E;font-family:var(--font-mono);">刺眼黑客绿</span>
+              </div>
+              <div class="old-chip" style="background:#0D1726;border:1px solid #1D3852;color:#E2F3FF;">
+                <span>赛博青光</span><span style="color:#00E5FF;font-family:var(--font-mono);">廉价霓虹青</span>
+              </div>
+              <div class="old-chip" style="background:#1B1714;border:1px solid #3D3124;color:#F7EBD9;">
+                <span>琥珀终端</span><span style="color:#F59E0B;font-family:var(--font-mono);">发脏棕黄底</span>
+              </div>
+              <div class="old-chip" style="background:#111827;border:1px solid #24334C;color:#E5EDF8;">
+                <span>东京夜色</span><span style="color:#7AA2F7;font-family:var(--font-mono);">硬蓝框死板</span>
+              </div>
+              <div class="old-chip" style="background:#222936;border:1px solid #394458;color:#ECEFF4;">
+                <span>北欧极光</span><span style="color:#88C0D0;font-family:var(--font-mono);">灰扑扑厚框</span>
+              </div>
+              <div class="old-chip" style="background:#1E1E2E;border:1px solid #313244;color:#CDD6F4;">
+                <span>摩卡暗夜 ✓</span><span style="color:#CBA6F7;font-family:var(--font-mono);">柔和协调</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="preview-footer">
+        <div>
+          快捷键：<span class="kbd">←</span> <span class="kbd">→</span> 切换配色 ·
+          <span class="kbd">F</span> 收藏当前 ·
+          <span class="kbd">B</span> 对比新旧基础样式
+        </div>
+        <div id="pickedSummary">已收藏：01 摩卡暗夜</div>
+      </div>
+    </aside>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const GROUPS = [
+      {
+        id: 'neutral',
+        title: 'A · 旗舰深色 · 高级中性',
+        sub: 'Linear / Raycast / Catppuccin / Zed 风格：克制低饱和、百搭耐看'
+      },
+      {
+        id: 'mood',
+        title: 'B · 氛围深色 · 艺术与自然',
+        sub: 'Rosé Pine / 浮世绘 / 森林雾 / 黑胶暖棕：高级感取代老式霓虹黑客风'
+      },
+      {
+        id: 'light',
+        title: 'C · 通透浅色 · 纸感与瓷白',
+        sub: 'Apple / Notion / 摩卡拿铁 / 北欧瓷白：清爽不刺眼的现代日间配色'
+      }
+    ];
+
+    const PALETTES = [
+      // === A. 旗舰深色 · 高级中性 ===
+      {
+        num: '01',
+        id: 'catppuccin-mocha',
+        group: 'neutral',
+        mode: 'dark',
+        name: '摩卡暗夜',
+        en: 'Catppuccin Mocha',
+        tag: 'MOCHA',
+        desc: '保留你认可的经典标杆，并微调层级灰度差与柔边：低饱和炭紫夜色 + 柔薰衣草紫',
+        note: '经典标杆 · 柔紫夜色',
+        bg: '#11111B',
+        sidebar: '#171723',
+        surface: '#1E1E2E',
+        elevated: '#26263A',
+        border: '#313244',
+        text: '#D8E0F8',
+        secondary: '#9399B2',
+        accent: '#CBA6F7',
+        weekend: '#FAB387',
+        warning: '#F38BA8'
+      },
+      {
+        num: '02',
+        id: 'linear-obsidian',
+        group: 'neutral',
+        mode: 'dark',
+        name: '线性曜石',
+        en: 'Linear Obsidian',
+        tag: 'OBSID',
+        desc: 'Linear / Vercel 级极简深炭黑基底，几乎零脏色偏，搭配高级柔靛紫蓝，极其耐看',
+        note: '极简专业 · Linear 风',
+        bg: '#0D0E12',
+        sidebar: '#121319',
+        surface: '#181A22',
+        elevated: '#21242E',
+        border: '#282C38',
+        text: '#ECEEF4',
+        secondary: '#8A90A0',
+        accent: '#8E9BF7',
+        weekend: '#B9A7F5',
+        warning: '#E86E7D'
+      },
+      {
+        num: '03',
+        id: 'graphite-mono',
+        group: 'neutral',
+        mode: 'dark',
+        name: '石墨炭影',
+        en: 'Graphite Mono',
+        tag: 'MONO',
+        desc: 'Raycast / macOS 深空灰无色偏炭灰基底 + 雾银钢蓝点缀，安静、克制、零审美疲劳',
+        note: '无色偏炭灰 · 极致克制',
+        bg: '#121214',
+        sidebar: '#17171A',
+        surface: '#1E1E22',
+        elevated: '#27272C',
+        border: '#2F2F36',
+        text: '#F2F2F4',
+        secondary: '#8F8F99',
+        accent: '#A8BACB',
+        weekend: '#D6C6B2',
+        warning: '#E06C75'
+      },
+      {
+        num: '04',
+        id: 'midnight-slate',
+        group: 'neutral',
+        mode: 'dark',
+        name: '午夜青岚',
+        en: 'Midnight Slate',
+        tag: 'SLATE',
+        desc: '重塑版“冷灰蓝”：取代原版死板的东京夜色/北欧极光，柔石板深底 + 清透雾冰蓝',
+        note: '取代旧东京/北欧 · 清透冷灰',
+        bg: '#10141B',
+        sidebar: '#151A23',
+        surface: '#1B222E',
+        elevated: '#232C3B',
+        border: '#2C3748',
+        text: '#E7EEF8',
+        secondary: '#8B9BB2',
+        accent: '#7BB5E8',
+        weekend: '#9ED6C8',
+        warning: '#EB7B8B'
+      },
+
+      // === B. 氛围深色 · 艺术与自然 ===
+      {
+        num: '05',
+        id: 'rose-pine',
+        group: 'mood',
+        mode: 'dark',
+        name: '玫瑰松影',
+        en: 'Rosé Pine',
+        tag: 'ROSE',
+        desc: '口碑封神的温柔暗夜美学：暮紫墨底 + 玫瑰香槟粉 + 丁香辅色，听音乐氛围感拉满',
+        note: '温柔暮紫 · 音乐绝配',
+        bg: '#14121D',
+        sidebar: '#1A1726',
+        surface: '#211E30',
+        elevated: '#2A263D',
+        border: '#343049',
+        text: '#EAE6F6',
+        secondary: '#9893B0',
+        accent: '#EBBCBA',
+        weekend: '#C4A7E7',
+        warning: '#EB6F92'
+      },
+      {
+        num: '06',
+        id: 'kanagawa-wave',
+        group: 'mood',
+        mode: 'dark',
+        name: '神奈川浪',
+        en: 'Kanagawa Wave',
+        tag: 'WAVE',
+        desc: '浮世绘靛墨深底 + 柔和和纸米白文字 + 浪花蓝与樱粉点缀，沉静高级、久看不累',
+        note: '浮世绘墨蓝 · 护眼米白字',
+        bg: '#16161D',
+        sidebar: '#1B1B24',
+        surface: '#22222E',
+        elevated: '#2B2B3A',
+        border: '#343447',
+        text: '#E0DBBE',
+        secondary: '#96927F',
+        accent: '#7E9CD8',
+        weekend: '#D27E99',
+        warning: '#E46876'
+      },
+      {
+        num: '07',
+        id: 'everforest-dusk',
+        group: 'mood',
+        mode: 'dark',
+        name: '深林苔雾',
+        en: 'Everforest Dusk',
+        tag: 'PINE',
+        desc: '彻底替代刺眼的“矩阵荧光”！雾灰森林深底 + 低饱和鼠尾草绿，自然护眼且高级',
+        note: '取代旧矩阵绿 · 护眼森系',
+        bg: '#171C19',
+        sidebar: '#1C221F',
+        surface: '#232B27',
+        elevated: '#2C3631',
+        border: '#36433C',
+        text: '#E4E0CC',
+        secondary: '#96A297',
+        accent: '#A7C080',
+        weekend: '#DBBC7F',
+        warning: '#E67E80'
+      },
+      {
+        num: '08',
+        id: 'velvet-espresso',
+        group: 'mood',
+        mode: 'dark',
+        name: '浓缩可可',
+        en: 'Velvet Espresso',
+        tag: 'WARM',
+        desc: '彻底替代发脏的“琥珀终端”！黑巧暖炭灰底 + 温润烤焦糖拿铁金，像深夜黑胶唱片机',
+        note: '取代旧琥珀 · 暖意黑胶风',
+        bg: '#141210',
+        sidebar: '#1B1815',
+        surface: '#231F1C',
+        elevated: '#2D2824',
+        border: '#38322C',
+        text: '#F0E7DB',
+        secondary: '#A4988A',
+        accent: '#E0A96D',
+        weekend: '#DC9176',
+        warning: '#E06C6C'
+      },
+      {
+        num: '09',
+        id: 'nebula-velvet',
+        group: 'mood',
+        mode: 'dark',
+        name: '星云紫雾',
+        en: 'Nebula Velvet',
+        tag: 'DUSK',
+        desc: '比摩卡更深邃沉静的午夜紫黑基底，搭配柔亮星云紫与暮粉，现代感与梦幻感兼得',
+        note: '深邃暮紫 · 现代质感',
+        bg: '#12101A',
+        sidebar: '#181523',
+        surface: '#201C2E',
+        elevated: '#29243B',
+        border: '#342E4A',
+        text: '#ECE8FA',
+        secondary: '#968FAF',
+        accent: '#B095F9',
+        weekend: '#E8A5C8',
+        warning: '#EE7490'
+      },
+      {
+        num: '10',
+        id: 'abyssal-teal',
+        group: 'mood',
+        mode: 'dark',
+        name: '松石海渊',
+        en: 'Abyssal Teal',
+        tag: 'TEAL',
+        desc: '彻底替代廉价的“赛博青光”！深海冷墨石底 + 柔和孔雀碧青，克制清冷如深海玻璃',
+        note: '取代旧赛博青 · 雅致海蓝绿',
+        bg: '#0F1618',
+        sidebar: '#141D20',
+        surface: '#1A262A',
+        elevated: '#223136',
+        border: '#2B3E44',
+        text: '#E4F1F3',
+        secondary: '#88A1A8',
+        accent: '#66C7BC',
+        weekend: '#8ABCE6',
+        warning: '#E87A82'
+      },
+      {
+        num: '11',
+        id: 'crimson-dusk',
+        group: 'mood',
+        mode: 'dark',
+        name: '暮樱珊瑚',
+        en: 'Crimson Dusk',
+        tag: 'RUBY',
+        desc: 'Apple Music 暗色灵感：极微紫调炭黑 + 克制珊瑚绯红，既呼应 B 站粉又不甜腻',
+        note: 'Apple Music 感 · 绯红点睛',
+        bg: '#131114',
+        sidebar: '#19161B',
+        surface: '#211D24',
+        elevated: '#2B262F',
+        border: '#36303B',
+        text: '#F3EDF1',
+        secondary: '#9F949E',
+        accent: '#E25D75',
+        weekend: '#E8B084',
+        warning: '#F06478'
+      },
+
+      // === C. 通透浅色 · 纸感与瓷白 ===
+      {
+        num: '12',
+        id: 'alabaster-mist',
+        group: 'light',
+        mode: 'light',
+        name: '云石霜白',
+        en: 'Alabaster Mist',
+        tag: 'MIST',
+        desc: 'macOS / Linear Light 现代浅色：微冷云石浅灰底 + 纯白浮层 + 优雅靛蓝，干净通透',
+        note: '现代旗舰浅色 · 极净通透',
+        bg: '#F4F6FA',
+        sidebar: '#ECEFF6',
+        surface: '#FFFFFF',
+        elevated: '#F1F4FA',
+        border: '#DFE4EE',
+        text: '#1A1F2E',
+        secondary: '#646F84',
+        accent: '#4F5FD9',
+        weekend: '#8D5CE2',
+        warning: '#D6455D'
+      },
+      {
+        num: '13',
+        id: 'catppuccin-latte',
+        group: 'light',
+        mode: 'light',
+        name: '拿铁晨光',
+        en: 'Catppuccin Latte',
+        tag: 'LATTE',
+        desc: '摩卡暗夜官方姊妹浅色！奶油微冷纸底 + 柔雅薰衣草紫，和 01 摩卡完美组成日夜双套',
+        note: '摩卡姊妹浅色 · 日夜绝配',
+        bg: '#EFF1F5',
+        sidebar: '#E6E9EF',
+        surface: '#FAFBFD',
+        elevated: '#F3F5FA',
+        border: '#DCE0E8',
+        text: '#393C52',
+        secondary: '#6B6E84',
+        accent: '#8839EF',
+        weekend: '#D96B38',
+        warning: '#D20F39'
+      },
+      {
+        num: '14',
+        id: 'warm-paper',
+        group: 'light',
+        mode: 'light',
+        name: '和纸暖阳',
+        en: 'Warm Paper',
+        tag: 'PAPER',
+        desc: 'Notion / Craft 纸书质感：低蓝光象牙和纸底 + 温润赤陶棕橙，白天久看完全不刺眼',
+        note: '暖调纸感 · 护眼日间',
+        bg: '#F6F3EC',
+        sidebar: '#EEE9DF',
+        surface: '#FDFBF7',
+        elevated: '#F3EEE4',
+        border: '#E2DBCE',
+        text: '#28241F',
+        secondary: '#787064',
+        accent: '#B85D30',
+        weekend: '#538266',
+        warning: '#C84848'
+      },
+      {
+        num: '15',
+        id: 'nordic-porcelain',
+        group: 'light',
+        mode: 'light',
+        name: '雾岚瓷青',
+        en: 'Nordic Porcelain',
+        tag: 'FROST',
+        desc: '清新北欧瓷白：淡淡冰川冷雾底 + 雅致峡湾蓝，搭配空间毛玻璃质感像剔透冰瓷',
+        note: '清冷瓷白 · 玻璃感极佳',
+        bg: '#F1F5F8',
+        sidebar: '#E7EEF4',
+        surface: '#FAFCFE',
+        elevated: '#EDF3F7',
+        border: '#D6E2EC',
+        text: '#1D2A37',
+        secondary: '#5E7286',
+        accent: '#3678A3',
+        weekend: '#BE843B',
+        warning: '#C74B59'
+      }
+    ];
+
+    // 色彩计算工具（对齐 internal/theme/theme.go 的 Luminance & Blend）
+    function hexToRgb(hex) {
+      const s = hex.replace('#', '');
+      return {
+        r: parseInt(s.slice(0, 2), 16),
+        g: parseInt(s.slice(2, 4), 16),
+        b: parseInt(s.slice(4, 6), 16)
+      };
+    }
+    function rgbToHex(r, g, b) {
+      const h = v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0').toUpperCase();
+      return '#' + h(r) + h(g) + h(b);
+    }
+    function blendHex(a, b, t) {
+      const c1 = hexToRgb(a), c2 = hexToRgb(b);
+      return rgbToHex(c1.r * (1 - t) + c2.r * t, c1.g * (1 - t) + c2.g * t, c1.b * (1 - t) + c2.b * t);
+    }
+    function rgba(hex, alpha) {
+      const { r, g, b } = hexToRgb(hex);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+    function luminance(hex) {
+      const { r, g, b } = hexToRgb(hex);
+      return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    }
+    function contrastInk(hex) {
+      return luminance(hex) > 0.54 ? '#0E1118' : '#FFFFFF';
+    }
+
+    function computeTokens(p) {
+      const dark = p.mode === 'dark';
+      const onAccent = contrastInk(p.accent);
+      // 新版柔和基础样式衍生值（告别脏混色与硬实线）
+      const hover = dark ? 'rgba(255, 255, 255, 0.048)' : 'rgba(15, 23, 42, 0.045)';
+      const hoverStrong = dark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(15, 23, 42, 0.09)';
+      const selected = rgba(p.accent, dark ? 0.14 : 0.11);
+      const hairline = dark ? 'rgba(255, 255, 255, 0.065)' : 'rgba(15, 23, 42, 0.075)';
+      const hairlineStrong = dark ? 'rgba(255, 255, 255, 0.105)' : 'rgba(15, 23, 42, 0.11)';
+      const warningBg = rgba(p.warning, dark ? 0.15 : 0.11);
+      // 旧版 derivePalette 公式，供“对比新旧样式”开关演示
+      const legacySelected = blendHex(p.surface, p.accent, dark ? 0.22 : 0.15);
+      const legacyHover = blendHex(p.surface, p.accent, dark ? 0.12 : 0.08);
+      return {
+        dark,
+        onAccent,
+        hover,
+        hoverStrong,
+        selected,
+        hairline,
+        hairlineStrong,
+        warningBg,
+        legacySelected,
+        legacyHover,
+        stageBg: dark ? '#080A0F' : '#DCE3EE',
+        heroTint: rgba(p.accent, dark ? 0.09 : 0.07),
+        winShadow: dark
+          ? '0 24px 60px -16px rgba(0,0,0,0.72), 0 8px 20px -6px rgba(0,0,0,0.48)'
+          : '0 22px 54px -16px rgba(15,23,42,0.22), 0 6px 18px -6px rgba(15,23,42,0.10)',
+        glassFill: rgba(p.surface, dark ? 0.64 : 0.74),
+        glassRim: dark ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.72)',
+        glassSpec: dark ? 'rgba(255,255,255,0.24)' : 'rgba(255,255,255,0.92)'
+      };
+    }
+
+    // 状态
+    let currentId = PALETTES[0].id;
+    let currentFilter = 'all';
+    let currentTab = 'music';
+    let legacyStyle = false;
+    const favorites = new Set(['catppuccin-mocha']);
+
+    const cardsContainer = document.getElementById('cardsContainer');
+    const stageFrame = document.getElementById('stageFrame');
+    const favCountEl = document.getElementById('favCount');
+    const pickedSummaryEl = document.getElementById('pickedSummary');
+    const toastEl = document.getElementById('toast');
+    let toastTimer = null;
+
+    function showToast(msg) {
+      toastEl.textContent = msg;
+      toastEl.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2200);
+    }
+
+    function visiblePalettes() {
+      if (currentFilter === 'all') return PALETTES;
+      if (currentFilter === 'fav') return PALETTES.filter(p => favorites.has(p.id));
+      return PALETTES.filter(p => p.group === currentFilter);
+    }
+
+    function renderCards() {
+      const list = visiblePalettes();
+      cardsContainer.innerHTML = '';
+
+      if (list.length === 0) {
+        cardsContainer.innerHTML = '<div style="padding:36px 20px;text-align:center;color:var(--shell-sub);background:var(--shell-panel);border:1px solid var(--shell-line);border-radius:12px;">还没有收藏的配色，点击任意卡片右上角的 ★ 即可加入候选清单。</div>';
+        return;
+      }
+
+      const groupsToRender = currentFilter === 'fav'
+        ? [{ id: 'fav', title: `★ 已收藏候选配色 (${list.length})`, sub: '挑出你最满意的 6 套左右，告诉我编号即可直接落地到 QuailCrate' }]
+        : GROUPS.filter(g => list.some(p => p.group === g.id));
+
+      for (const g of groupsToRender) {
+        const items = currentFilter === 'fav' ? list : list.filter(p => p.group === g.id);
+        const sec = document.createElement('div');
+        sec.className = 'section-group';
+        sec.innerHTML = `
+          <div class="section-head">
+            <div class="section-title">${g.title}</div>
+            <div class="section-sub">${g.sub}</div>
+          </div>
+          <div class="palette-grid"></div>
+        `;
+        const grid = sec.querySelector('.palette-grid');
+
+        for (const p of items) {
+          const t = computeTokens(p);
+          const card = document.createElement('div');
+          card.className = 'p-card' + (p.id === currentId ? ' active' : '');
+          card.dataset.id = p.id;
+          card.style.setProperty('--c-bg', p.bg);
+          card.style.setProperty('--c-sidebar', p.sidebar);
+          card.style.setProperty('--c-surface', p.surface);
+          card.style.setProperty('--c-border-soft', t.hairlineStrong);
+          card.style.setProperty('--c-text', p.text);
+          card.style.setProperty('--c-secondary', p.secondary);
+          card.style.setProperty('--c-accent', p.accent);
+          card.style.setProperty('--c-accent-16', rgba(p.accent, 0.16));
+          card.style.setProperty('--c-accent-45', rgba(p.accent, 0.45));
+          card.style.setProperty('--c-on-accent', t.onAccent);
+          card.style.setProperty('--c-hover', t.hover);
+          card.style.setProperty('--c-selected', t.selected);
+          card.style.setProperty('--c-weekend', p.weekend);
+          card.style.setProperty('--c-warning', p.warning);
+
+          const isFav = favorites.has(p.id);
+          card.innerHTML = `
+            <div class="p-card-head">
+              <div class="p-card-title-wrap">
+                <div class="p-card-top-meta">
+                  <span class="p-num">${p.num}</span>
+                  <span class="p-tag">${p.tag}</span>
+                  <span class="p-mode-pill">${p.mode === 'dark' ? '深色' : '浅色'}</span>
+                </div>
+                <div class="p-name">${p.name}</div>
+                <div class="p-en">${p.en}</div>
+              </div>
+              <button class="fav-btn ${isFav ? 'faved' : ''}" data-fav="${p.id}" title="${isFav ? '取消收藏' : '加入候选清单'}">
+                ${isFav ? '★' : '☆'}
+              </button>
+            </div>
+            <div class="mini-ui">
+              <div class="mini-side">
+                <div class="mini-nav act"></div>
+                <div class="mini-nav"></div>
+                <div class="mini-nav" style="width:62%;"></div>
+              </div>
+              <div class="mini-body">
+                <div class="mini-row-top">
+                  <span class="mini-heading">深夜编码 Lo-Fi</span>
+                  <span class="mini-pill">PLAY</span>
+                </div>
+                <div class="mini-bars">
+                  <div class="mini-track"><div class="mini-track-fill"></div></div>
+                  <span class="mini-dot-w" title="辅色 ${p.weekend}"></span>
+                  <span class="mini-dot-err" title="警示 ${p.warning}"></span>
+                </div>
+              </div>
+            </div>
+            <div class="p-swatches">
+              <div class="swatch-row">
+                <span class="sw" style="background:${p.bg}" title="Background ${p.bg}"></span>
+                <span class="sw" style="background:${p.sidebar}" title="Sidebar ${p.sidebar}"></span>
+                <span class="sw" style="background:${p.surface}" title="Surface ${p.surface}"></span>
+                <span class="sw" style="background:${p.accent}" title="Accent ${p.accent}"></span>
+                <span class="sw" style="background:${p.weekend}" title="Weekend ${p.weekend}"></span>
+                <span class="sw" style="background:${p.text}" title="Text ${p.text}"></span>
+              </div>
+              <span class="p-note">${p.note}</span>
+            </div>
+          `;
+
+          card.addEventListener('click', (e) => {
+            const favBtn = e.target.closest('[data-fav]');
+            if (favBtn) {
+              e.stopPropagation();
+              toggleFavorite(p.id);
+              return;
+            }
+            selectPalette(p.id);
+          });
+
+          grid.appendChild(card);
+        }
+        cardsContainer.appendChild(sec);
+      }
+    }
+
+    function selectPalette(id) {
+      currentId = id;
+      const p = PALETTES.find(x => x.id === id) || PALETTES[0];
+      const t = computeTokens(p);
+
+      // 更新顶部说明
+      document.getElementById('prevTitle').textContent = `${p.num} · ${p.name}`;
+      document.getElementById('prevTag').textContent = p.tag;
+      document.getElementById('prevEn').textContent = p.en + (p.mode === 'dark' ? ' · Dark' : ' · Light');
+      document.getElementById('prevDesc').textContent = p.desc;
+
+      // 注入预览舞台 CSS 变量
+      const vars = {
+        '--t-bg': p.bg,
+        '--t-sidebar': p.sidebar,
+        '--t-surface': p.surface,
+        '--t-elevated': p.elevated,
+        '--t-border': p.border,
+        '--t-hairline': t.hairline,
+        '--t-hairline-strong': t.hairlineStrong,
+        '--t-text': p.text,
+        '--t-secondary': p.secondary,
+        '--t-accent': p.accent,
+        '--t-accent-12': rgba(p.accent, 0.12),
+        '--t-accent-16': rgba(p.accent, 0.16),
+        '--t-accent-24': rgba(p.accent, 0.24),
+        '--t-accent-28': rgba(p.accent, 0.28),
+        '--t-accent-45': rgba(p.accent, 0.45),
+        '--t-on-accent': t.onAccent,
+        '--t-weekend': p.weekend,
+        '--t-weekend-14': rgba(p.weekend, 0.14),
+        '--t-warning': p.warning,
+        '--t-warning-bg': t.warningBg,
+        '--t-hover': t.hover,
+        '--t-hover-strong': t.hoverStrong,
+        '--t-selected': t.selected,
+        '--t-legacy-selected': t.legacySelected,
+        '--t-legacy-hover': t.legacyHover,
+        '--t-stage-bg': t.stageBg,
+        '--t-hero-tint': t.heroTint,
+        '--t-win-shadow': t.winShadow,
+        '--t-glass-fill': t.glassFill,
+        '--t-glass-rim': t.glassRim,
+        '--t-glass-spec': t.glassSpec
+      };
+      for (const [k, v] of Object.entries(vars)) {
+        stageFrame.style.setProperty(k, v);
+      }
+
+      // 歌单色点随当前配色微调
+      document.getElementById('plDot1').style.background = p.accent;
+      document.getElementById('plDot2').style.background = p.weekend;
+      document.getElementById('plDot3').style.background = p.warning;
+
+      renderTokenGrid(p, t);
+
+      // 高亮当前选中卡
+      document.querySelectorAll('.p-card').forEach(el => {
+        el.classList.toggle('active', el.dataset.id === currentId);
+      });
+    }
+
+    function renderTokenGrid(p, t) {
+      const items = [
+        ['Background 主底', p.bg],
+        ['Sidebar 侧栏', p.sidebar],
+        ['Surface 浮层', p.surface],
+        ['Elevated 次浮层', p.elevated],
+        ['Border 结构线', p.border],
+        ['Text 主文本', p.text],
+        ['Secondary 次文本', p.secondary],
+        ['Accent 主强调', p.accent],
+        ['Weekend 辅强调', p.weekend],
+        ['Warning 警示红', p.warning],
+        ['OnAccent 按钮字', t.onAccent],
+        ['Selected(旧公式)', t.legacySelected]
+      ];
+      const grid = document.getElementById('tokenGrid');
+      grid.innerHTML = '';
+      for (const [label, hex] of items) {
+        const div = document.createElement('div');
+        div.className = 'tok-item';
+        div.innerHTML = `
+          <div class="tok-box" style="background:${hex}"></div>
+          <div style="min-width:0;">
+            <div class="tok-name">${label}</div>
+            <div class="tok-hex">${hex}</div>
+          </div>
+        `;
+        div.addEventListener('click', () => {
+          copyText(hex, `已复制 ${label}: ${hex}`);
+        });
+        grid.appendChild(div);
+      }
+    }
+
+    function toggleFavorite(id) {
+      if (favorites.has(id)) {
+        favorites.delete(id);
+      } else {
+        favorites.add(id);
+      }
+      updateFavUI();
+      renderCards();
+    }
+
+    function updateFavUI() {
+      favCountEl.textContent = String(favorites.size);
+      const picked = PALETTES.filter(p => favorites.has(p.id));
+      if (picked.length === 0) {
+        pickedSummaryEl.textContent = '已收藏：暂未选择（点 ★ 收藏喜欢的配色）';
+      } else {
+        pickedSummaryEl.textContent = '已收藏：' + picked.map(p => `${p.num} ${p.name}`).join(' / ');
+      }
+    }
+
+    function copyText(text, okMsg) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => showToast(okMsg)).catch(() => fallbackCopy(text, okMsg));
+      } else {
+        fallbackCopy(text, okMsg);
+      }
+    }
+    function fallbackCopy(text, okMsg) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        showToast(okMsg);
+      } catch (err) {
+        showToast('复制失败，请手动查看底部已收藏清单');
+      }
+      document.body.removeChild(ta);
+    }
+
+    function toggleStyleMode() {
+      legacyStyle = !legacyStyle;
+      stageFrame.classList.toggle('legacy-style', legacyStyle);
+      const btn = document.getElementById('styleModeBtn');
+      const txt = document.getElementById('styleModeText');
+      btn.classList.toggle('toggle-on', !legacyStyle);
+      txt.textContent = legacyStyle
+        ? '旧版基础样式（硬实线框 + 混色高亮）'
+        : '新版基础样式（柔和发丝线 + 层级明度）';
+      showToast(legacyStyle ? '已切到旧版硬边框样式，方便对比差异' : '已切回新版柔和基础样式');
+    }
+
+    // 事件绑定
+    document.getElementById('filterGroup').addEventListener('click', (e) => {
+      const btn = e.target.closest('.filter-btn');
+      if (!btn) return;
+      currentFilter = btn.dataset.filter;
+      document.querySelectorAll('#filterGroup .filter-btn').forEach(b => b.classList.toggle('active', b === btn));
+      renderCards();
+    });
+
+    document.getElementById('previewTabs').addEventListener('click', (e) => {
+      const btn = e.target.closest('.ptab');
+      if (!btn) return;
+      currentTab = btn.dataset.tab;
+      document.querySelectorAll('#previewTabs .ptab').forEach(b => b.classList.toggle('active', b === btn));
+      ['music', 'desktop', 'tokens'].forEach(t => {
+        document.getElementById('tab-' + t).classList.toggle('hidden', t !== currentTab);
+      });
+    });
+
+    document.getElementById('styleModeBtn').addEventListener('click', toggleStyleMode);
+
+    document.getElementById('copyPicksBtn').addEventListener('click', () => {
+      const picked = PALETTES.filter(p => favorites.has(p.id));
+      if (picked.length === 0) {
+        showToast('请先点击卡片上的 ★ 收藏至少 1 套配色');
+        return;
+      }
+      const summary = picked.map(p => `${p.num}. ${p.name} (${p.en}) [bg:${p.bg}, surface:${p.surface}, accent:${p.accent}]`).join('\n');
+      copyText(summary, `已复制 ${picked.length} 套已收藏配色清单！直接发给我即可应用`);
+    });
+
+    // 键盘快捷评审
+    window.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      const list = visiblePalettes();
+      if (list.length === 0) return;
+      const idx = list.findIndex(p => p.id === currentId);
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        const next = list[(idx + 1 + list.length) % list.length];
+        selectPalette(next.id);
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prev = list[(idx - 1 + list.length) % list.length];
+        selectPalette(prev.id);
+      } else if (e.key === 'f' || e.key === 'F') {
+        toggleFavorite(currentId);
+      } else if (e.key === 'b' || e.key === 'B') {
+        toggleStyleMode();
+      }
+    });
+
+    // 初始化
+    updateFavUI();
+    renderCards();
+    selectPalette(currentId);
+  </script>
+</body>
+</html>

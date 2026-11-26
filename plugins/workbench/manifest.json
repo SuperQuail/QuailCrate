@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 2,
+  "hostApiVersion": 2,
+  "uiVersion": 2,
+  "id": "quailcrate.workbench",
+  "name": "Toolbox interface",
+  "description": "Settings pages and system tray menu.",
+  "icon": "settings",
+  "localizations": {"zh-CN":{"name":"工具箱界面","description":"提供设置页和托盘菜单。"}},
+  "version": "1.0.0",
+  "runtime": "lua",
+  "entry": "plugin.lua",
+  "contributes": ["settings","tray"],
+  "permissions": []
+}

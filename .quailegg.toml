@@ -1,0 +1,41 @@
+schema_version = 1
+
+[project]
+repo = "github.com/SuperQuail/QuailCrate"
+default_branch = "main"
+
+[git]
+remote = "origin"
+tag_prefix = "v"
+
+[release]
+mode = "pr"
+branch = "release"
+github_release = true
+
+[release.workflow]
+mode = "external"
+
+[release.assets]
+commands = ["pwsh -NoProfile -File scripts/verify-windows.ps1"]
+files = ["dist/QuailCrate-windows-amd64.zip", "dist/QuailCrate-windows-amd64-setup.exe"]
+
+[changes]
+dir = ".changes"
+scope = ["cmd", "internal", "pluginapi", "plugins", "web", "examples", "scripts", "go.mod", "go.sum"]
+
+[verify]
+# The version PR checks module integrity. The asset command runs the Windows suite
+# against the same host, runner and DLL that will be packaged.
+commands = ["go mod verify"]
+timeout = "30m"
+
+[publish]
+registries = []
+
+[packages."go@quailcrate"]
+name = "quailcrate"
+path = "."
+resolver = "go"
+publish = false
+

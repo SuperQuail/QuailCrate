@@ -1,0 +1,8 @@
+{
+  "title": "Example Counter",
+  "overview": "Overview",
+  "counter": "Counter",
+  "count": "Current count",
+  "minus": "Decrease",
+  "plus": "Increase"
+}

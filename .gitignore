@@ -1,0 +1,14 @@
+/build/
+/dist/
+/.cache/
+/data/
+
+TODO.md
+
+# Log file
+debug.log
+
+# QuailEgg runtime files
+/.quailegg/state/
+/.quailegg/lock
+/.quailegg/assets/

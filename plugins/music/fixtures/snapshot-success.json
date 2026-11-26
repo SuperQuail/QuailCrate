@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "locale": "zh-CN",
+  "activeView": "pl_coding",
+  "sortBy": "custom",
+  "preferredQuality": "192k",
+  "account": {
+    "loggedIn": true,
+    "nickname": "阿鹌的耳机",
+    "mid": 29384710,
+    "level": 6,
+    "vip": true
+  },
+  "login": {
+    "phase": "logged_in",
+    "qrUrl": "",
+    "message": "已登录 Bilibili"
+  },
+  "playlists": [
+    {
+      "id": "pl_coding",
+      "name": "深夜编码 Lo-Fi",
+      "desc": "写代码专用低干扰器乐与雨夜电音",
+      "color": "accent",
+      "trackIds": ["tr_1", "tr_2"]
+    },
+    {
+      "id": "pl_live",
+      "name": "B站翻唱宝藏",
+      "desc": "收藏的 Live 与钢琴独奏",
+      "color": "rose",
+      "trackIds": ["tr_2"]
+    }
+  ],
+  "tracks": [
+    {
+      "id": "tr_1",
+      "dedupeKey": "BV1xx411c7mD:p1",
+      "bvid": "BV1xx411c7mD",
+      "aid": 170001,
+      "cid": 279786,
+      "page": 1,
+      "totalPages": 1,
+      "title": "Rainy Window in Kyoto (Hi-Res Mix)",
+      "artist": "深夜唱片店",
+      "durationMs": 228000,
+      "favorite": true,
+      "addedAt": 1764100000
+    },
+    {
+      "id": "tr_2",
+      "dedupeKey": "BV1GJ411x7h7:p2",
+      "bvid": "BV1GJ411x7h7",
+      "aid": 80433022,
+      "cid": 137649199,
+      "page": 2,
+      "totalPages": 3,
+      "title": "星屑の夜想曲 · P2 钢琴独奏版",
+      "artist": "白键与海",
+      "durationMs": 255000,
+      "favorite": false,
+      "addedAt": 1764103600
+    }
+  ],
+  "downloads": { "tr_1": { "status": "downloaded", "percent": 100 } },
+  "recentIds": ["tr_1", "tr_2"],
+  "queue": ["tr_1", "tr_2"],
+  "playback": {
+    "trackId": "tr_1",
+    "status": "playing",
+    "positionMs": 64200,
+    "durationMs": 228000,
+    "seekable": true,
+    "volume": 0.78,
+    "muted": false,
+    "mode": "sequence",
+    "qualityLabel": "192K AAC",
+    "error": ""
+  },
+  "importPreview": null,
+  "notice": null
+}

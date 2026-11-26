@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 2,
+  "id": "quailcrate.desktop-groups",
+  "name": "桌面分组",
+  "description": "Quick launch hub for games, web pages, projects, apps, and files.",
+  "icon": "folder",
+  "localizations": {
+    "en-US": {
+      "name": "Desktop Groups",
+      "description": "Quick launch hub for games, web pages, projects, apps, and files."
+    },
+    "zh-CN": {
+      "name": "桌面分组",
+      "description": "桌面快捷启动中心：支持游戏、网页、开发项目、应用与多标签分组。"
+    }
+  },
+  "version": "0.2.0",
+  "runtime": "lua",
+  "entry": "plugin.lua",
+  "hostApiVersion": 2,
+  "uiVersion": 2,
+  "contributes": ["quailcrate.search.provider", "quailcrate.result.actions", "commands", "widgets", "tray"],
+  "provides": [{"id":"quailcrate.groups.items","version":"1.0.0","methods":["add"]}],
+  "uses": [{"id":"quailcrate.items","versionRange":">=1.0.0 <2.0.0","methods":["open"],"optional":true}],
+  "publishes": ["quailcrate.desktop-groups.changed"],
+  "permissions": ["paths.open", "apps.read", "apps.launch", "urls.open"]
+}

@@ -1,0 +1,26 @@
+name: Set up the Windows build
+description: Install the Go and music frontend toolchains and restore their dependency caches.
+runs:
+  using: composite
+  steps:
+    - name: Set the Go build environment
+      shell: pwsh
+      run: |
+        "GOCACHE=$(Join-Path $env:GITHUB_WORKSPACE 'build/go-cache')" >> $env:GITHUB_ENV
+        'CGO_ENABLED=0' >> $env:GITHUB_ENV
+    - uses: actions/setup-go@v6
+      with:
+        go-version-file: go.mod
+        cache: true
+        cache-dependency-path: |
+          go.mod
+          go.sum
+    - uses: actions/setup-node@v6
+      with:
+        node-version: '24'
+        package-manager-cache: false
+    - uses: pnpm/action-setup@v6
+      with:
+        version: '12.3.4'
+        cache: true
+        cache_dependency_path: web/music/pnpm-lock.yaml

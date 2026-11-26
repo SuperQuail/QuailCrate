@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "example.counter",
+  "name": "示例计数器",
+  "description": "A desktop counter that saves its value.",
+  "localizations": {
+    "en-US": { "name": "Example Counter" },
+    "zh-CN": { "name": "示例计数器", "description": "可保存数值的桌面计数器。" }
+  },
+  "version": "1.0.0",
+  "runtime": "lua",
+  "entry": "plugin.lua",
+  "hostApiVersion": 1,
+  "contributes": ["widgets", "appTabs"],
+  "permissions": []
+}

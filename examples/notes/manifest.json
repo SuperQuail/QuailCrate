@@ -1,0 +1,10 @@
+{
+ "schemaVersion":2,"hostApiVersion":2,"uiVersion":2,
+ "id":"example.notes","name":"Notes","localizations":{"zh-CN":{"name":"笔记"}},
+ "description":"Create and search notes, then save a reference to a desktop group.",
+ "version":"1.0.0","runtime":"lua","entry":"plugin.lua",
+ "contributes":["quailcrate.search.provider","appTabs","commands"],
+ "provides":[{"id":"quailcrate.items","version":"1.0.0","methods":["open"]}],
+ "uses":[{"id":"quailcrate.groups.items","versionRange":">=1.0.0 <2.0.0","methods":["add"],"optional":true}],
+ "permissions":[]
+}

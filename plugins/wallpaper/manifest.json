@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "quailcrate.wallpaper",
+  "name": "系统壁纸",
+  "description": "Set a local image as the desktop wallpaper.",
+  "icon": "image",
+  "localizations": {
+    "en-US": { "name": "System Wallpaper" },
+    "zh-CN": { "name": "系统壁纸", "description": "将本地图片设为系统桌面壁纸。" }
+  },
+  "version": "0.1.0",
+  "runtime": "lua",
+  "entry": "plugin.lua",
+  "hostApiVersion": 1,
+  "contributes": ["commands"],
+  "permissions": ["wallpaper.set"]
+}
