@@ -1,20 +1,20 @@
-name: QuailEgg release
-
+name: QuailEgg Release
 on:
   push:
-    branches: [main]
+    branches: ["main"]
     paths:
-      - '.changes/**'
-      - '.quailegg.toml'
-      - '.quailegg/pre-release.lock'
-      - '.quailegg/release.json'
-      - 'CHANGELOG.md'
-      - 'go.mod'
+      - ".changes/**"
+      - ".quailegg.toml"
+      - ".quailegg/pre-release.lock"
+      - ".quailegg/release.json"
+      - "CHANGELOG.md"
+      - "go.mod"
   workflow_dispatch:
 
 permissions:
   contents: write
   pull-requests: write
+  id-token: write
 
 concurrency:
   group: qegg-release
@@ -22,22 +22,26 @@ concurrency:
 
 jobs:
   release:
-    if: github.ref == 'refs/heads/main'
     runs-on: windows-2022
     timeout-minutes: 60
+    if: github.actor != 'github-actions[bot]'
     steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: main
-          fetch-depth: 0
-      - uses: ./.github/actions/setup-windows
-      - name: Install QuailEgg
-        run: go install github.com/SuperQuail/QuailEgg/cmd/qegg@v0.15.0
-      - name: Configure release author
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-      - name: Run QuailEgg
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.26', cache: true }
+      - name: Install qegg
+        run: go install github.com/SuperQuail/QuailEgg/cmd/qegg@v0.15.0
+      - name: Check release branch
+        if: github.ref != 'refs/heads/main'
+        shell: pwsh
+        run: throw 'Run the release workflow from main.'
+      - uses: ./.github/actions/setup-windows
+      - name: Release
         run: qegg release --yes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
