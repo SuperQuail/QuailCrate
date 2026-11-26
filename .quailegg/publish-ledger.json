@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "entries": {
+    "0452f500c506e3de53d6cb6130c190f6": {
+      "key": "0452f500c506e3de53d6cb6130c190f6",
+      "identity": {
+        "schema_version": 1,
+        "repo": "github.com/SuperQuail/QuailCrate",
+        "tags": [
+          "v0.1.0-alpha.1"
+        ],
+        "version": "0.1.0-alpha.1",
+        "channel": "alpha",
+        "mode": "pr",
+        "fingerprint": "sha256:48e46d9c6cbd2030b1af96d1e45385df80455a7f061d79957e8e3408a59c8a98",
+        "source_commit": "07675f9cb28da3e2909864ee823121c4eae72a8b"
+      },
+      "run_id": "20261126T211043-4000",
+      "created_at": "2026-11-26T21:10:43.5517236Z",
+      "updated_at": "2026-11-26T21:12:16.886302Z",
+      "round": {
+        "release_enabled": true
+      },
+      "packages": {
+        "go@quailcrate": {
+          "key": {
+            "repo": "github.com/SuperQuail/QuailCrate",
+            "package": "go@quailcrate",
+            "version": "0.1.0-alpha.1",
+            "target": "go"
+          },
+          "resolver": "go",
+          "path": ".",
+          "outcome": "not-started",
+          "started_at": "0001-01-01T00:00:00Z",
+          "finished_at": "0001-01-01T00:00:00Z"
+        }
+      }
+    },
+    "aed38b05c9926e32e2e9f6f2f8edc95b": {
+      "key": "aed38b05c9926e32e2e9f6f2f8edc95b",
+      "identity": {
+        "schema_version": 1,
+        "repo": "github.com/SuperQuail/QuailCrate",
+        "tags": [
+          "v0.1.0-alpha.1"
+        ],
+        "version": "0.1.0-alpha.1",
+        "channel": "alpha",
+        "mode": "pr",
+        "fingerprint": "sha256:89b463dec240c98974e5c659412d7b27b009494aac31364f8c4330f4f8e221d8",
+        "source_commit": "253a8e7de956953b23e5e5fab9444f0312af7daf"
+      },
+      "run_id": "20261126T225900-900",
+      "created_at": "2026-11-26T22:59:01.0686816Z",
+      "updated_at": "2026-11-26T23:09:50.3740378Z",
+      "round": {
+        "release_enabled": true
+      },
+      "packages": {
+        "go@quailcrate": {
+          "key": {
+            "repo": "github.com/SuperQuail/QuailCrate",
+            "package": "go@quailcrate",
+            "version": "0.1.0-alpha.1",
+            "target": "go"
+          },
+          "resolver": "go",
+          "path": ".",
+          "outcome": "skipped",
+          "reason": "publish_false",
+          "run_id": "20261126T230816-1200",
+          "started_at": "0001-01-01T00:00:00Z",
+          "finished_at": "2026-11-26T23:09:32.6809491Z"
+        }
+      },
+      "steps": {
+        "assets": {
+          "status": "done",
+          "at": "2026-11-26T23:09:31.2517929Z"
+        },
+        "github-release": {
+          "status": "done",
+          "at": "2026-11-26T23:09:47.370113Z"
+        },
+        "publish": {
+          "status": "done",
+          "at": "2026-11-26T23:09:34.1005107Z"
+        },
+        "push": {
+          "status": "done",
+          "at": "2026-11-26T23:09:38.5618558Z"
+        },
+        "sync": {
+          "status": "done",
+          "at": "2026-11-26T23:09:50.3740378Z"
+        },
+        "tag": {
+          "status": "done",
+          "at": "2026-11-26T23:09:35.5377049Z"
+        }
+      }
+    }
+  }
+}
