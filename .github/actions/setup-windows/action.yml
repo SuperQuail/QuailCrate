@@ -9,12 +9,18 @@ runs:
         "GOCACHE=$(Join-Path $env:GITHUB_WORKSPACE 'build/go-cache')" >> $env:GITHUB_ENV
         'CGO_ENABLED=0' >> $env:GITHUB_ENV
     - uses: actions/setup-go@v6
+      id: go
       with:
         go-version-file: go.mod
         cache: true
         cache-dependency-path: |
           go.mod
           go.sum
+          .github/actions/setup-windows/action.yml
+    - name: Populate the Go module cache
+      if: steps.go.outputs.cache-hit != 'true'
+      shell: pwsh
+      run: go mod download
     - uses: actions/setup-node@v6
       with:
         node-version: '24'
