@@ -1,0 +1,112 @@
+{
+  "schema_version": 2,
+  "version": "0.1.0-alpha.1",
+  "created_at": "2026-11-26T23:00:42.8004834Z",
+  "mode": "pr",
+  "channel": "alpha",
+  "fingerprint": "sha256:89b463dec240c98974e5c659412d7b27b009494aac31364f8c4330f4f8e221d8",
+  "repo": {
+    "host": "github.com",
+    "owner": "SuperQuail",
+    "name": "QuailCrate",
+    "url": "https://github.com/SuperQuail/QuailCrate"
+  },
+  "verified": {
+    "commands": [
+      "go mod verify",
+      "pwsh -NoProfile -File scripts/build.ps1 -VerifyOnly"
+    ],
+    "skipped": false,
+    "at": "2026-11-26T23:00:42.8004834Z"
+  },
+  "packages": [
+    {
+      "name": "go@quailcrate",
+      "path": ".",
+      "resolver": "go",
+      "current": "0.0.0",
+      "next": "0.1.0-alpha.1",
+      "bump": "minor",
+      "tag": "v0.1.0-alpha.1",
+      "publish": false
+    }
+  ],
+  "releases": [
+    {
+      "version": "0.1.0-alpha.1",
+      "tag": "v0.1.0-alpha.1",
+      "packages": [
+        "go@quailcrate"
+      ],
+      "prerelease": "alpha"
+    }
+  ],
+  "changes": [
+    {
+      "file": ".changes/initial.md",
+      "type": "feat",
+      "bump": "minor",
+      "packages": [
+        "go@quailcrate"
+      ],
+      "body": "Initial release.",
+      "commit": "422cc46ac2b1e298d2692e5a0d3e619d76cf5f3f",
+      "commit_url": "https://github.com/SuperQuail/QuailCrate/commit/422cc46ac2b1e298d2692e5a0d3e619d76cf5f3f",
+      "author": "Wsrsq"
+    },
+    {
+      "file": ".changes/installer-unicode-shortcut.md",
+      "type": "fix",
+      "scope": "installer",
+      "bump": "patch",
+      "packages": [
+        "go@quailcrate"
+      ],
+      "body": "Use Unicode IShellLinkW COM APIs for Windows Start Menu shortcuts so installs to paths outside the system ANSI code page succeed, and surface silent setup errors in installer smoke tests.",
+      "commit": "1f99c03667d289ff5e942362bae1221af643f935",
+      "commit_url": "https://github.com/SuperQuail/QuailCrate/commit/1f99c03667d289ff5e942362bae1221af643f935",
+      "author": "Wsrsq"
+    },
+    {
+      "file": ".changes/managed-windows-release.md",
+      "type": "ci",
+      "bump": "patch",
+      "packages": [
+        "go@quailcrate"
+      ],
+      "body": "Run the full Windows test suite before the QuailEgg-managed workflow opens a release pull request.",
+      "commit": "cac2eb44a3f2708b13505491d1cae440870bcf45",
+      "commit_url": "https://github.com/SuperQuail/QuailCrate/commit/cac2eb44a3f2708b13505491d1cae440870bcf45",
+      "author": "Wsrsq"
+    },
+    {
+      "file": ".changes/windows-audio-ci.md",
+      "type": "ci",
+      "bump": "patch",
+      "packages": [
+        "go@quailcrate"
+      ],
+      "body": "Keep music download and library checks running on Windows builders without a playback device, and show Go test failures in the release job log.",
+      "commit": "cac2eb44a3f2708b13505491d1cae440870bcf45",
+      "commit_url": "https://github.com/SuperQuail/QuailCrate/commit/cac2eb44a3f2708b13505491d1cae440870bcf45",
+      "author": "Wsrsq"
+    },
+    {
+      "file": ".changes/windows-go-cache.md",
+      "type": "ci",
+      "bump": "patch",
+      "packages": [
+        "go@quailcrate"
+      ],
+      "body": "Populate the Windows Go module cache before a verification-only run can save it under the shared build key.",
+      "commit": "170eb3a74d9a4cd71d50a878df4a070076e5fc4d",
+      "commit_url": "https://github.com/SuperQuail/QuailCrate/commit/170eb3a74d9a4cd71d50a878df4a070076e5fc4d",
+      "pull_number": 4,
+      "pull_url": "https://github.com/SuperQuail/QuailCrate/pull/4",
+      "author": "Wsrsq"
+    }
+  ],
+  "qegg": {
+    "version": "0.15.0"
+  }
+}
