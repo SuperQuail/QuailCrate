@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/sys/windows"
+	"quailcrate/internal/testaudio"
 )
 
 func silentWAV(ms int) []byte {
@@ -82,8 +82,7 @@ func TestReplaceCancelsLoadingAndIsolatesControls(t *testing.T) {
 
 func TestWindowsPlayback(t *testing.T) {
 	// Real device integration. A headless worker may have no audio endpoints.
-	ndev, _, _ := windows.NewLazySystemDLL("winmm.dll").NewProc("waveOutGetNumDevs").Call()
-	if ndev == 0 {
+	if !testaudio.HasOutput() {
 		t.Skip("Windows has no audio output device")
 	}
 	events := make(chan Event, 20)
@@ -138,8 +137,7 @@ func TestWindowsPlayback(t *testing.T) {
 }
 
 func TestWindowsPCMPlaysBeforeDownloadCompletes(t *testing.T) {
-	ndev, _, _ := windows.NewLazySystemDLL("winmm.dll").NewProc("waveOutGetNumDevs").Call()
-	if ndev == 0 {
+	if !testaudio.HasOutput() {
 		t.Skip("Windows has no audio output device")
 	}
 	evs := make(chan Event, 8)
@@ -233,8 +231,7 @@ func TestFragmentedAACAndExternalReferences(t *testing.T) {
 }
 
 func TestWindowsFragmentedAAC(t *testing.T) {
-	ndev, _, _ := windows.NewLazySystemDLL("winmm.dll").NewProc("waveOutGetNumDevs").Call()
-	if ndev == 0 {
+	if !testaudio.HasOutput() {
 		t.Skip("Windows has no audio output device")
 	}
 	events := make(chan Event, 16)
@@ -281,8 +278,7 @@ func TestWindowsFragmentedAAC(t *testing.T) {
 }
 
 func TestWindowsFragmentedAACPlaysBeforeDownloadCompletes(t *testing.T) {
-	ndev, _, _ := windows.NewLazySystemDLL("winmm.dll").NewProc("waveOutGetNumDevs").Call()
-	if ndev == 0 {
+	if !testaudio.HasOutput() {
 		t.Skip("Windows has no audio output device")
 	}
 	evs := make(chan Event, 16)

@@ -25,6 +25,7 @@ import (
 	"quailcrate/internal/pluginapps/pagetest"
 	"quailcrate/internal/plugins"
 	"quailcrate/internal/store"
+	"quailcrate/internal/testaudio"
 	v1 "quailcrate/pluginapi/v1"
 )
 
@@ -287,6 +288,9 @@ func (page *musicTestPage) openLibrary(h *Host) {
 }
 
 func TestMusicPluginNextPlaysPrefetchedPrefixWhileTailIsBlocked(t *testing.T) {
+	if !testaudio.HasOutput() {
+		t.Skip("prefetch handoff requires a playing track and an audio output device")
+	}
 	wav := musicTestWAV()
 	const prefixBytes = 44 + 5*testMusicSampleRate*2 // WAV header and five seconds of 16-bit mono audio
 	tail := make(chan struct{})
@@ -447,6 +451,24 @@ func TestMusicPluginPlaybackCacheAndDownloads(t *testing.T) {
 	st := waitDownloaded("part2")
 	if len(st.RecentIDs) != 0 || len(st.Queue) != 0 || st.Playback.TrackID != "" || audioRequests.Load() != 1 {
 		t.Fatalf("direct download changed playback or fetched duplicate audio: state=%+v requests=%d", st, audioRequests.Load())
+	}
+	if !testaudio.HasOutput() {
+		// Downloads, including their index across a plugin restart, work offline without an audio device.
+		offline.Store(true)
+		restart()
+		waitDownloaded("part2")
+		page.sendOp("download.remove", trackArgs("part2"))
+		page.waitState("download removed", func(s musicPageState) bool {
+			_, present := s.Downloads["part2"]
+			return !present
+		})
+		restart()
+		st = page.readState()
+		if len(st.Downloads) != 0 || len(st.Tracks) != 2 || audioRequests.Load() != 1 || resolverRequests.Load() != 1 {
+			t.Fatalf("offline download removal was not persisted: state=%+v media=%d resolver=%d", st, audioRequests.Load(), resolverRequests.Load())
+		}
+		t.Log("skipped real playback, seek, and playback-cache promotion: no audio output device")
+		return
 	}
 	row := map[string]any{"trackId": "part1", "queueTrackIds": []string{"part1"}, "toggleCurrent": true}
 	page.sendOp("playback.playTrack", row)
@@ -780,16 +802,24 @@ func TestMusicPluginEndToEndWithLocalBilibiliAndAudioFixtures(t *testing.T) {
 	sendOp("queue.add", map[string]any{"trackId": impResult.TrackIDs[0]})
 	sendOp("queue.add", map[string]any{"trackId": impResult.TrackIDs[1]})
 
-	// 4. Play track 1 -> expired URL triggers playurl re-resolve -> primary CDN fails -> backup CDN plays silence-fragmented.m4a!
-	sendOp("playback.playTrack", map[string]any{"trackId": impResult.TrackIDs[0]})
-	st = waitState("playback started via re-resolve + backup CDN", func(s musicPageState) bool {
-		return s.Playback.TrackID == impResult.TrackIDs[0] && (s.Playback.Status == "playing" || s.Playback.Status == "ended")
-	})
+	// Resolve an expired URL, then fetch from the backup CDN. A download exercises
+	// the same local fixture on machines with no device for the mini-player.
+	hasOutput := testaudio.HasOutput()
+	if hasOutput {
+		sendOp("playback.playTrack", map[string]any{"trackId": impResult.TrackIDs[0]})
+		st = waitState("playback started via re-resolve + backup CDN", func(s musicPageState) bool {
+			return s.Playback.TrackID == impResult.TrackIDs[0] && (s.Playback.Status == "playing" || s.Playback.Status == "ended")
+		})
+	} else {
+		sendOp("download.start", map[string]any{"trackId": impResult.TrackIDs[0]})
+		waitState("download completed via re-resolve + backup CDN", func(s musicPageState) bool {
+			return s.Downloads[impResult.TrackIDs[0]].Status == "downloaded"
+		})
+	}
 	if playurlCalls.Load() < 2 {
 		t.Fatalf("expected playurl re-resolve after expired URL, got %d calls", playurlCalls.Load())
 	}
 
-	// Desktop mini-player native slider seek (`widget.action` with `InputValue`).
 	h.mu.Lock()
 	rec := h.records[pluginID]
 	var miniWidgetID string
@@ -801,35 +831,41 @@ func TestMusicPluginEndToEndWithLocalBilibiliAndAudioFixtures(t *testing.T) {
 	if miniWidgetID == "" {
 		t.Fatal("default desktop mini-player widget not created")
 	}
-	if err := h.invoke(pluginID, miniGen, "event", v1.Payload{
-		WidgetID: miniWidgetID,
-		Event: &v1.Event{
-			Type:         "widget.action",
-			WidgetID:     miniWidgetID,
-			ControlID:    "seek",
-			ViewRevision: miniRev,
-			Generation:   miniGen,
-			InputValue:   json.RawMessage("0.5"),
-		},
-	}); err != nil {
-		t.Fatalf("mini-player slider seek failed: %v", err)
-	}
-	st = readState()
-	if st.Playback.PositionMs == 0 && st.Playback.DurationMs > 0 {
-		t.Fatalf("expected mini-player slider seek to update positionMs, got %+v", st.Playback)
+	if hasOutput {
+		if err := h.invoke(pluginID, miniGen, "event", v1.Payload{
+			WidgetID: miniWidgetID,
+			Event: &v1.Event{
+				Type:         "widget.action",
+				WidgetID:     miniWidgetID,
+				ControlID:    "seek",
+				ViewRevision: miniRev,
+				Generation:   miniGen,
+				InputValue:   json.RawMessage("0.5"),
+			},
+		}); err != nil {
+			t.Fatalf("mini-player slider seek failed: %v", err)
+		}
+		st = readState()
+		if st.Playback.PositionMs == 0 && st.Playback.DurationMs > 0 {
+			t.Fatalf("expected mini-player slider seek to update positionMs, got %+v", st.Playback)
+		}
 	}
 
-	// Close page window, switch to next track via tray/command in background, then reopen page and verify sync!
 	b.Close()
-	if err := h.invoke(pluginID, 0, "command", v1.Payload{CommandID: "next"}); err != nil {
-		t.Fatalf("background next command failed: %v", err)
+	if hasOutput {
+		if err := h.invoke(pluginID, 0, "command", v1.Payload{CommandID: "next"}); err != nil {
+			t.Fatalf("background next command failed: %v", err)
+		}
 	}
 	if err := b.Open(tab.TabRef, nil); err != nil {
 		t.Fatalf("reopen music page: %v", err)
 	}
-	st = waitState("reopened page synced to track 2", func(s musicPageState) bool {
-		return s.Playback.TrackID == impResult.TrackIDs[1] && (s.Playback.Status == "playing" || s.Playback.Status == "ended")
-	})
+	st = readState()
+	if hasOutput {
+		st = waitState("reopened page synced to track 2", func(s musicPageState) bool {
+			return s.Playback.TrackID == impResult.TrackIDs[1] && (s.Playback.Status == "playing" || s.Playback.Status == "ended")
+		})
+	}
 	if len(st.Playlists) != 1 || st.Playlists[0].Name != "深夜代码 · 精选" || !st.Tracks[0].Favorite {
 		t.Fatalf("reopened page lost playlist/favorite state: %+v", st)
 	}

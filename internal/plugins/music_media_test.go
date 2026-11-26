@@ -10,11 +10,13 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"quailcrate/internal/testaudio"
 	v1 "quailcrate/pluginapi/v1"
 )
 
@@ -152,10 +154,13 @@ func TestMusicRowToggleAndPrefetchedShuffleStayInSync(t *testing.T) {
 			http.NotFound(w, r)
 		}
 	}))
-	defer server.Close()
+	t.Cleanup(server.Close)
 
 	h := newMusicMediaHarness(t, server.URL)
 	h.page("playback.playTrack", `{"trackId":"tr_1","toggleCurrent":true}`)
+	h.waitPage("tr_1 fetching audio", func(s musicMediaPage) bool {
+		return s.Playback.Status == "loading" && tr1AudioReqs.Load() > 0
+	})
 
 	// While tr_1 is loading, clicking its row again with toggleCurrent must be a no-op and not restart fetch.
 	row := `{"trackId":"tr_1","queueTrackIds":["tr_1"],"toggleCurrent":true}`
@@ -164,7 +169,14 @@ func TestMusicRowToggleAndPrefetchedShuffleStayInSync(t *testing.T) {
 	if err := json.Unmarshal(loadingReply.PageReply, &pending); err != nil || !pending.Pending {
 		t.Fatalf("second loading click reply = %s", loadingReply.PageReply)
 	}
+	if loading := h.tabState(); !slices.Equal(loading.Queue, []string{"tr_1", "tr_2", "tr_3"}) || tr1AudioReqs.Load() != 1 {
+		t.Fatalf("loading click changed queue or restarted fetch: state=%+v requests=%d", loading, tr1AudioReqs.Load())
+	}
 	releaseTr1()
+	if !testaudio.HasOutput() {
+		t.Log("no audio output device for pause, resume and shuffle playback")
+		return
+	}
 
 	h.waitPage("tr_1 playing and next shuffle track prefetched", func(s musicMediaPage) bool {
 		return s.Playback.TrackID == "tr_1" && s.Playback.Status == "playing" && prefetchedCid.Load() != nil
@@ -242,7 +254,7 @@ func TestMusicDownloadAndPlaybackShareResolution(t *testing.T) {
 			http.NotFound(w, r)
 		}
 	}))
-	defer server.Close()
+	t.Cleanup(server.Close)
 
 	h := newMusicMediaHarness(t, server.URL)
 	h.page("download.start", `{"trackId":"tr_1"}`)
@@ -256,10 +268,14 @@ func TestMusicDownloadAndPlaybackShareResolution(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 	releaseResolve()
 
-	h.waitPage("tr_1 downloaded and playing from shared backup CDN", func(s musicMediaPage) bool {
-		return s.Downloads["tr_1"].Status == "downloaded" && s.Playback.TrackID == "tr_1" &&
-			(s.Playback.Status == "playing" || s.Playback.Status == "ended")
+	h.waitPage("tr_1 downloaded from backup CDN", func(s musicMediaPage) bool {
+		return s.Downloads["tr_1"].Status == "downloaded"
 	})
+	if testaudio.HasOutput() {
+		h.waitPage("tr_1 playing from shared transfer", func(s musicMediaPage) bool {
+			return s.Playback.TrackID == "tr_1" && (s.Playback.Status == "playing" || s.Playback.Status == "ended")
+		})
+	}
 	if playurlCalls.Load() != 1 || backupHits.Load() != 1 {
 		t.Fatalf("download and playback duplicated resolution or transfer: playurl=%d primary=%d backup=%d",
 			playurlCalls.Load(), primaryHits.Load(), backupHits.Load())

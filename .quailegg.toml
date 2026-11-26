@@ -14,7 +14,16 @@ branch = "release"
 github_release = true
 
 [release.workflow]
-mode = "external"
+mode = "managed"
+runner = "windows-2022"
+timeout_minutes = 60
+yaml = '''
+- name: Check release branch
+  if: github.ref != 'refs/heads/main'
+  shell: pwsh
+  run: throw 'Run the release workflow from main.'
+- uses: ./.github/actions/setup-windows
+'''
 
 [release.assets]
 commands = ["pwsh -NoProfile -File scripts/verify-windows.ps1"]
@@ -25,9 +34,8 @@ dir = ".changes"
 scope = ["cmd", "internal", "pluginapi", "plugins", "web", "examples", "scripts", "go.mod", "go.sum"]
 
 [verify]
-# The version PR checks module integrity. The asset command runs the Windows suite
-# against the same host, runner and DLL that will be packaged.
-commands = ["go mod verify"]
+commands = ["go mod verify", "pwsh -NoProfile -File scripts/build.ps1 -VerifyOnly"]
+hook_commands = ["go mod verify"]
 timeout = "30m"
 
 [publish]
