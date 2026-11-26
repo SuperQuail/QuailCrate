@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param()
 
 $ErrorActionPreference = 'Stop'
@@ -18,9 +18,91 @@ if (-not $env:QEGG_VERSION -and $env:GITHUB_SHA -and $version -cne ('0.0.0-dev+'
 $build = [IO.Directory]::CreateDirectory((Join-Path $root 'build')).FullName
 $work = Join-Path $build ('_installer-test-' + [guid]::NewGuid().ToString('N'))
 $install = Join-Path $work '安装 QuailCrate'
+$setupLog = Join-Path $work 'setup-error.log'
 $uninstaller = Join-Path $install 'Uninstall.exe'
 $shortcut = Join-Path ([Environment]::GetFolderPath('Programs')) 'QuailCrate.lnk'
 $keyName = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\QuailCrate'
+
+function Get-ShellLinkInterface {
+    $type = 'QuailCrate.IShellLinkW' -as [type]
+    if ($type) { return $type }
+    $assembly = [Reflection.Emit.AssemblyBuilder]::DefineDynamicAssembly(
+        (New-Object Reflection.AssemblyName 'QuailCrateShellLink'),
+        [Reflection.Emit.AssemblyBuilderAccess]::Run
+    )
+    $module = $assembly.DefineDynamicModule('QuailCrateShellLink')
+    $interface = $module.DefineType(
+        'QuailCrate.IShellLinkW',
+        [Reflection.TypeAttributes]::Public -bor [Reflection.TypeAttributes]::Interface -bor
+            [Reflection.TypeAttributes]::Abstract -bor [Reflection.TypeAttributes]::Import
+    )
+    $interface.SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder(
+        [Runtime.InteropServices.ComImportAttribute].GetConstructor([type[]]@()), @()
+    )))
+    $interface.SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder(
+        [Runtime.InteropServices.GuidAttribute].GetConstructor([type[]]@([string])),
+        @('000214F9-0000-0000-C000-000000000046')
+    )))
+    $interface.SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder(
+        [Runtime.InteropServices.InterfaceTypeAttribute].GetConstructor([type[]]@([Runtime.InteropServices.ComInterfaceType])),
+        @([Runtime.InteropServices.ComInterfaceType]::InterfaceIsIUnknown)
+    )))
+    $lpwstr = New-Object Reflection.Emit.CustomAttributeBuilder(
+        [Runtime.InteropServices.MarshalAsAttribute].GetConstructor([type[]]@([Runtime.InteropServices.UnmanagedType])),
+        @([Runtime.InteropServices.UnmanagedType]::LPWStr)
+    )
+    $methodAttrs = [Reflection.MethodAttributes]::Public -bor [Reflection.MethodAttributes]::Abstract -bor
+        [Reflection.MethodAttributes]::Virtual -bor [Reflection.MethodAttributes]::HideBySig -bor
+        [Reflection.MethodAttributes]::NewSlot
+    $slots = @(
+        @('GetPath',             @([Text.StringBuilder], [int], [IntPtr], [uint32]), $true,  $true),
+        @('GetIDList',           @([IntPtr].MakeByRefType()),                        $false, $false),
+        @('SetIDList',           @([IntPtr]),                                        $false, $false),
+        @('GetDescription',      @([Text.StringBuilder], [int]),                     $true,  $true),
+        @('SetDescription',      @([string]),                                        $false, $true),
+        @('GetWorkingDirectory', @([Text.StringBuilder], [int]),                     $true,  $true),
+        @('SetWorkingDirectory', @([string]),                                        $false, $true),
+        @('GetArguments',        @([Text.StringBuilder], [int]),                     $true,  $true),
+        @('SetArguments',        @([string]),                                        $false, $true),
+        @('GetHotkey',           @([int16].MakeByRefType()),                         $false, $false),
+        @('SetHotkey',           @([int16]),                                         $false, $false),
+        @('GetShowCmd',          @([int].MakeByRefType()),                           $false, $false),
+        @('SetShowCmd',          @([int]),                                           $false, $false),
+        @('GetIconLocation',     @([Text.StringBuilder], [int], [int].MakeByRefType()), $true, $true),
+        @('SetIconLocation',     @([string], [int]),                                 $false, $true),
+        @('SetRelativePath',     @([string], [uint32]),                              $false, $true),
+        @('Resolve',             @([IntPtr], [uint32]),                              $false, $false),
+        @('SetPath',             @([string]),                                        $false, $true)
+    )
+    foreach ($slot in $slots) {
+        $method = $interface.DefineMethod($slot[0], $methodAttrs, [void], [type[]]$slot[1])
+        if ($slot[3]) {
+            $paramAttr = if ($slot[2]) { [Reflection.ParameterAttributes]::Out } else { [Reflection.ParameterAttributes]::In }
+            $param = $method.DefineParameter(1, $paramAttr, 'p1')
+            $param.SetCustomAttribute($lpwstr)
+        }
+    }
+    return $interface.CreateType()
+}
+
+function Get-ShortcutInfo([string]$Path) {
+    $iface = Get-ShellLinkInterface
+    $persist = [Runtime.InteropServices.ComTypes.IPersistFile]
+    $com = [Activator]::CreateInstance([Type]::GetTypeFromCLSID([Guid]'00021401-0000-0000-C000-000000000046'))
+    try {
+        $persist.GetMethod('Load').Invoke($com, [object[]]@($Path, 0))
+        $target = [Text.StringBuilder]::new(32768)
+        $workDir = [Text.StringBuilder]::new(32768)
+        $iface.GetMethod('GetPath').Invoke($com, [object[]]@($target, $target.Capacity, [IntPtr]::Zero, [uint32]0))
+        $iface.GetMethod('GetWorkingDirectory').Invoke($com, [object[]]@($workDir, $workDir.Capacity))
+        [pscustomobject]@{
+            TargetPath = $target.ToString()
+            WorkingDirectory = $workDir.ToString()
+        }
+    } finally {
+        [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($com)
+    }
+}
 
 function Get-Registration([Microsoft.Win32.RegistryView]$View = 'Registry64') {
     $base = [Microsoft.Win32.RegistryKey]::OpenBaseKey('CurrentUser', $View)
@@ -39,10 +121,24 @@ function Get-Registration([Microsoft.Win32.RegistryView]$View = 'Registry64') {
 }
 
 function Invoke-Setup([string]$Executable, [string]$Arguments, [switch]$ExpectFailure) {
-    $process = Start-Process -FilePath $Executable -ArgumentList $Arguments -WindowStyle Hidden -PassThru -Wait
+    if ([IO.File]::Exists($setupLog)) { [IO.File]::Delete($setupLog) }
+    $previousLog = $env:QUAILCRATE_SETUP_LOG
+    $env:QUAILCRATE_SETUP_LOG = $setupLog
+    try {
+        $process = Start-Process -FilePath $Executable -ArgumentList $Arguments -WindowStyle Hidden -PassThru -Wait
+    } finally {
+        if ($null -eq $previousLog) { Remove-Item Env:QUAILCRATE_SETUP_LOG -ErrorAction SilentlyContinue }
+        else { $env:QUAILCRATE_SETUP_LOG = $previousLog }
+    }
     if ($ExpectFailure) {
         if ($process.ExitCode -eq 0) { throw 'Upgrade succeeded while the installed executable was locked.' }
-    } elseif ($process.ExitCode -ne 0) { throw "$Executable failed with exit code $($process.ExitCode)." }
+    } elseif ($process.ExitCode -ne 0) {
+        $detail = ''
+        if ([IO.File]::Exists($setupLog)) {
+            $detail = [Environment]::NewLine + ([IO.File]::ReadAllText($setupLog, [Text.UTF8Encoding]::new($false)).Trim())
+        }
+        throw "$Executable failed with exit code $($process.ExitCode).$detail"
+    }
 }
 
 function Assert-Installation([string]$ExpectedVersion) {
@@ -52,9 +148,9 @@ function Assert-Installation([string]$ExpectedVersion) {
         throw "Incorrect uninstall registration for $ExpectedVersion."
     }
     if (-not (Test-Path -LiteralPath $shortcut -PathType Leaf)) { throw 'Missing Start menu shortcut.' }
-    $link = (New-Object -ComObject WScript.Shell).CreateShortcut($shortcut)
+    $link = Get-ShortcutInfo $shortcut
     if ($link.TargetPath -ne (Join-Path $install 'QuailCrate.exe') -or $link.WorkingDirectory -ne $install) {
-        throw 'Incorrect Start menu shortcut target or working directory.'
+        throw "Incorrect Start menu shortcut target or working directory: target='$($link.TargetPath)' workdir='$($link.WorkingDirectory)'"
     }
 }
 

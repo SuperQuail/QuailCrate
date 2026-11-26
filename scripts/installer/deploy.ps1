@@ -64,6 +64,105 @@ function New-PayloadDirectory([string]$Path) {
     }
 }
 
+function Get-ShellLinkInterface {
+    $type = 'QuailCrate.IShellLinkW' -as [type]
+    if ($type) { return $type }
+    $assembly = [Reflection.Emit.AssemblyBuilder]::DefineDynamicAssembly(
+        (New-Object Reflection.AssemblyName 'QuailCrateShellLink'),
+        [Reflection.Emit.AssemblyBuilderAccess]::Run
+    )
+    $module = $assembly.DefineDynamicModule('QuailCrateShellLink')
+    $interface = $module.DefineType(
+        'QuailCrate.IShellLinkW',
+        [Reflection.TypeAttributes]::Public -bor [Reflection.TypeAttributes]::Interface -bor
+            [Reflection.TypeAttributes]::Abstract -bor [Reflection.TypeAttributes]::Import
+    )
+    $interface.SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder(
+        [Runtime.InteropServices.ComImportAttribute].GetConstructor([type[]]@()), @()
+    )))
+    $interface.SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder(
+        [Runtime.InteropServices.GuidAttribute].GetConstructor([type[]]@([string])),
+        @('000214F9-0000-0000-C000-000000000046')
+    )))
+    $interface.SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder(
+        [Runtime.InteropServices.InterfaceTypeAttribute].GetConstructor([type[]]@([Runtime.InteropServices.ComInterfaceType])),
+        @([Runtime.InteropServices.ComInterfaceType]::InterfaceIsIUnknown)
+    )))
+    $lpwstr = New-Object Reflection.Emit.CustomAttributeBuilder(
+        [Runtime.InteropServices.MarshalAsAttribute].GetConstructor([type[]]@([Runtime.InteropServices.UnmanagedType])),
+        @([Runtime.InteropServices.UnmanagedType]::LPWStr)
+    )
+    $methodAttrs = [Reflection.MethodAttributes]::Public -bor [Reflection.MethodAttributes]::Abstract -bor
+        [Reflection.MethodAttributes]::Virtual -bor [Reflection.MethodAttributes]::HideBySig -bor
+        [Reflection.MethodAttributes]::NewSlot
+    $slots = @(
+        @('GetPath',             @([Text.StringBuilder], [int], [IntPtr], [uint32]), $true,  $true),
+        @('GetIDList',           @([IntPtr].MakeByRefType()),                        $false, $false),
+        @('SetIDList',           @([IntPtr]),                                        $false, $false),
+        @('GetDescription',      @([Text.StringBuilder], [int]),                     $true,  $true),
+        @('SetDescription',      @([string]),                                        $false, $true),
+        @('GetWorkingDirectory', @([Text.StringBuilder], [int]),                     $true,  $true),
+        @('SetWorkingDirectory', @([string]),                                        $false, $true),
+        @('GetArguments',        @([Text.StringBuilder], [int]),                     $true,  $true),
+        @('SetArguments',        @([string]),                                        $false, $true),
+        @('GetHotkey',           @([int16].MakeByRefType()),                         $false, $false),
+        @('SetHotkey',           @([int16]),                                         $false, $false),
+        @('GetShowCmd',          @([int].MakeByRefType()),                           $false, $false),
+        @('SetShowCmd',          @([int]),                                           $false, $false),
+        @('GetIconLocation',     @([Text.StringBuilder], [int], [int].MakeByRefType()), $true, $true),
+        @('SetIconLocation',     @([string], [int]),                                 $false, $true),
+        @('SetRelativePath',     @([string], [uint32]),                              $false, $true),
+        @('Resolve',             @([IntPtr], [uint32]),                              $false, $false),
+        @('SetPath',             @([string]),                                        $false, $true)
+    )
+    foreach ($slot in $slots) {
+        $method = $interface.DefineMethod($slot[0], $methodAttrs, [void], [type[]]$slot[1])
+        if ($slot[3]) {
+            $paramAttr = if ($slot[2]) { [Reflection.ParameterAttributes]::Out } else { [Reflection.ParameterAttributes]::In }
+            $param = $method.DefineParameter(1, $paramAttr, 'p1')
+            $param.SetCustomAttribute($lpwstr)
+        }
+    }
+    return $interface.CreateType()
+}
+
+function Get-ShortcutTarget([string]$Path) {
+    $iface = Get-ShellLinkInterface
+    $persist = [Runtime.InteropServices.ComTypes.IPersistFile]
+    $com = [Activator]::CreateInstance([Type]::GetTypeFromCLSID([Guid]'00021401-0000-0000-C000-000000000046'))
+    try {
+        $persist.GetMethod('Load').Invoke($com, [object[]]@($Path, 0))
+        $target = [Text.StringBuilder]::new(32768)
+        $iface.GetMethod('GetPath').Invoke($com, [object[]]@($target, $target.Capacity, [IntPtr]::Zero, [uint32]0))
+        return $target.ToString()
+    } finally {
+        [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($com)
+    }
+}
+
+function Save-Shortcut([string]$Path, [string]$TargetPath, [string]$WorkingDirectory) {
+    $iface = Get-ShellLinkInterface
+    $persist = [Runtime.InteropServices.ComTypes.IPersistFile]
+    $com = [Activator]::CreateInstance([Type]::GetTypeFromCLSID([Guid]'00021401-0000-0000-C000-000000000046'))
+    try {
+        $iface.GetMethod('SetPath').Invoke($com, [object[]]@($TargetPath))
+        $iface.GetMethod('SetWorkingDirectory').Invoke($com, [object[]]@($WorkingDirectory))
+        $persist.GetMethod('Save').Invoke($com, [object[]]@($Path, $false))
+    } finally {
+        [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($com)
+    }
+}
+
+function Write-SetupError($ErrorRecord) {
+    if (-not $env:QUAILCRATE_SETUP_LOG) { return }
+    try {
+        $logPath = [IO.Path]::GetFullPath($env:QUAILCRATE_SETUP_LOG)
+        Assert-OrdinaryPath $logPath
+        [IO.File]::WriteAllText($logPath, ($ErrorRecord | Out-String), [Text.UTF8Encoding]::new($false))
+    } catch {}
+}
+
+try {
 if ($InstallDir -notmatch '^(?:[A-Za-z]:\\|\\\\[^?.\\][^\\]*\\[^\\]+\\)' -or
     $InstallDir.Contains('/')) {
     throw 'Choose an absolute installation directory on a drive or network share.'
@@ -129,10 +228,18 @@ try {
         }
     }
 
-    $shell = New-Object -ComObject WScript.Shell
     Assert-OrdinaryPath $shortcut
     $hasShortcut = [IO.File]::Exists($shortcut)
-    $ownsShortcut = $hasShortcut -and $hadInstallation -and $shell.CreateShortcut($shortcut).TargetPath -eq $app
+    $ownsShortcut = $false
+    if ($hasShortcut -and $hadInstallation) {
+        try {
+            $ownsShortcut = (Get-ShortcutTarget $shortcut) -eq $app
+        } catch {
+            $ex = $_.Exception
+            if ($ex -isnot [Runtime.InteropServices.COMException] -and
+                $ex.InnerException -isnot [Runtime.InteropServices.COMException]) { throw }
+        }
+    }
     $writeShortcut = -not $hasShortcut -or $ownsShortcut
     $suffix = '.quailcrate-' + [guid]::NewGuid().ToString('N')
     $backups = @{}
@@ -164,10 +271,7 @@ try {
                 [IO.Directory]::CreateDirectory($programs) | Out-Null
                 $tempShortcut = Join-Path $programs ($suffix + '.lnk')
                 try {
-                    $link = $shell.CreateShortcut($tempShortcut)
-                    $link.TargetPath = $app
-                    $link.WorkingDirectory = $destination
-                    $link.Save()
+                    Save-Shortcut $tempShortcut $app $destination
                     [IO.File]::Move($tempShortcut, $shortcut)
                     $created.Add($shortcut)
                 } finally { [IO.File]::Delete($tempShortcut) }
@@ -221,4 +325,8 @@ try {
     if ($held) { $mutex.ReleaseMutex() }
     $mutex.Dispose()
     $registry.Close()
+}
+} catch {
+    Write-SetupError $_
+    throw
 }
