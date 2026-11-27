@@ -4,6 +4,12 @@
 
 **鹌鹑工具箱（QuailCrate）** 是一款面向 Windows 11（64 位）的轻量桌面效率工具箱，集成了应用快速启动、桌面分组、桌面月历、音乐与迷你播放器以及可扩展插件体系；所有配置、数据与缓存均保存在程序自身的 `data/` 目录内，不占用 C 盘 `%LOCALAPPDATA%` 空间。
 
+![QuailCrate 桌面概览](docs/screenshots/desktop.png)
+
+| 外观定制与空间毛玻璃 | 独立音乐库 | 插件与权限管理 |
+| :---: | :---: | :---: |
+| ![外观设置](docs/screenshots/appearance.png) | ![音乐库](docs/screenshots/music-library.png) | ![插件管理](docs/screenshots/plugins.png) |
+
 ## 核心功能
 
 - **应用快速启动（默认 `Alt+Space`）** — 一键呼出搜索框，快速查找并启动已安装应用或桌面分组条目；支持在搜索结果上右键执行快捷操作（如直接加入桌面分组）。

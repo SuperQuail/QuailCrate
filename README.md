@@ -4,6 +4,12 @@
 
 **QuailCrate** is a lightweight desktop toolbox for Windows 11 (x64) that brings together an application launcher, desktop groups, a desktop calendar, a music player, and extensible plugins—while keeping all settings, data, and caches cleanly inside its own folder instead of cluttering `%LOCALAPPDATA%`.
 
+![QuailCrate Desktop Overview](docs/screenshots/desktop.png)
+
+| Appearance & Spatial Glass | Music Library | Plugin Management |
+| :---: | :---: | :---: |
+| ![Appearance Settings](docs/screenshots/appearance.png) | ![Music Library](docs/screenshots/music-library.png) | ![Plugin Management](docs/screenshots/plugins.png) |
+
 ## Highlights
 
 - **Application Launcher (`Alt+Space`)** — Quickly search and launch installed applications or items from your desktop groups. Right-click results for quick actions such as adding an app to a group.
