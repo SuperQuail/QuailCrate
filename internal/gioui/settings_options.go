@@ -24,8 +24,29 @@ func (f settingsFrame) paragraph(gtx layout.Context, r image.Rectangle, value st
 }
 
 func (f settingsFrame) general(gtx layout.Context) {
-	y := f.hotkeyCard(gtx) + gtx.Dp(14)
-	settingsArea(gtx, image.Rect(0, y, gtx.Constraints.Max.X, y+gtx.Dp(126)), func(gtx layout.Context) { f.languageCard(gtx) })
+	kinds := [...]string{"hotkey", "language", "autostart", "updates"}
+	pad := f.contentPadding(gtx)
+	f.list(gtx, &f.generalList, len(kinds), func(gtx layout.Context, index int) layout.Dimensions {
+		dims := f.paddedCard(gtx, pad, func(gtx layout.Context) layout.Dimensions {
+			p, w := gtx.Dp, gtx.Constraints.Max.X
+			var cardH int
+			switch kinds[index] {
+			case "hotkey":
+				cardH = f.hotkeyCard(gtx)
+			case "language":
+				cardH = f.languageCard(gtx)
+			case "autostart":
+				cardH = f.autostartCard(gtx)
+			case "updates":
+				cardH = f.updatesCard(gtx)
+			}
+			return layout.Dimensions{Size: image.Pt(w, cardH+p(12))}
+		})
+		if index == len(kinds)-1 {
+			dims.Size.Y += gtx.Dp(12)
+		}
+		return dims
+	})
 }
 func (f settingsFrame) hotkeyCard(gtx layout.Context) int {
 	p, w := gtx.Dp, gtx.Constraints.Max.X
@@ -90,26 +111,47 @@ func (f settingsFrame) hotkeyCard(gtx layout.Context) int {
 
 	return cardH
 }
-func (f settingsFrame) languageCard(gtx layout.Context) {
+func (f settingsFrame) languageCard(gtx layout.Context) int {
 	p, w := gtx.Dp, gtx.Constraints.Max.X
-	y := 0
-	f.box(gtx, image.Rect(0, y, w, y+p(126)), 12, f.p.Surface)
-	f.label(gtx, image.Rect(p(18), y+p(9), w-p(16), y+p(39)), f.heading("界面语言", "Display language"), 16, font.SemiBold, f.p.Text, layout.W)
-	f.label(gtx, image.Rect(p(18), y+p(39), w-p(16), y+p(66)), f.tr("选择设置、菜单和支持翻译的插件使用的语言。", "Changes settings, menus, and plugins that provide translations."), 13, font.Normal, f.p.Secondary, layout.W)
-	x := p(16)
 	languages := [3]string{"system", "en-US", "zh-CN"}
 	labels := [3]string{f.tr("跟随系统", "System default"), "English", "简体中文"}
+	widths := [3]int{p(106), p(86), p(88)}
+	if !strings.HasPrefix(f.model.Locale, "zh") {
+		widths[0] = p(118)
+	}
+	gap := p(6)
+	groupW := widths[0] + widths[1] + widths[2] + gap*2
+	inline := w >= p(620)
+
+	cardH := p(76)
+	if !inline {
+		cardH = p(122)
+	}
+	f.box(gtx, image.Rect(0, 0, w, cardH), 12, f.p.Surface)
+
+	textRight := w - p(16)
+	if inline {
+		textRight = w - p(16) - groupW - p(16)
+	}
+	f.label(gtx, image.Rect(p(18), p(12), textRight, p(38)), f.heading("界面语言", "Display language"), 16, font.SemiBold, f.p.Text, layout.W)
+	f.label(gtx, image.Rect(p(18), p(40), textRight, p(64)), f.tr("选择设置、菜单和支持翻译的插件使用的语言。", "Changes settings, menus, and plugins that provide translations."), 12.5, font.Normal, f.p.Secondary, layout.W)
+
+	x := w - p(16) - groupW
+	btnY := (cardH - p(34)) / 2
+	if !inline {
+		x = p(16)
+		btnY = p(74)
+	}
 	for i, lang := range languages {
 		b := &f.languages[i]
 		if b.Clicked(gtx) {
 			f.emit(SettingsAction{Kind: ChangeLanguage, Value: lang})
 		}
-		width := p(97)
-		if i == 0 {
-			width = p(121)
+		bw := widths[i]
+		if !inline {
+			bw = min(bw, (w-p(40))*bw/max(1, groupW))
 		}
-		width = min(width, (w-p(40))*width/p(315))
-		f.button(gtx, image.Rect(x, y+p(75), x+width, y+p(109)), b, labels[i], func(gtx layout.Context) {
+		f.button(gtx, image.Rect(x, btnY, x+bw, btnY+p(34)), b, labels[i], func(gtx layout.Context) {
 			sel := lang == f.model.LanguagePreference
 			semantic.RadioButton.Add(gtx.Ops)
 			semantic.SelectedOp(sel).Add(gtx.Ops)
@@ -126,8 +168,9 @@ func (f settingsFrame) languageCard(gtx layout.Context) {
 			f.box(gtx, settingsBounds(gtx), 6, bg)
 			f.label(gtx, settingsBounds(gtx), labels[i], 13, font.Medium, fg, layout.Center)
 		})
-		x += width + p(7)
+		x += bw + gap
 	}
+	return cardH
 }
 
 func (f settingsFrame) desktop(gtx layout.Context) {

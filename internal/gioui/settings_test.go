@@ -550,3 +550,198 @@ func TestSettingsThirdPartyNativePluginWarningBadge(t *testing.T) {
 		t.Fatal("bundled DLL plugin should not display third-party risk warning badge")
 	}
 }
+
+func TestSettingsGeneralAutostartStatesAndActions(t *testing.T) {
+	view := NewSettingsView()
+	var router input.Router
+	// Tall viewport so all General cards render without needing scroll input.
+	gtx := layout.Context{
+		Ops: new(op.Ops), Source: router.Source(), Metric: unit.Metric{PxPerDp: 1, PxPerSp: 1},
+		Constraints: layout.Exact(image.Pt(980, 1100)),
+	}
+	var actions []SettingsAction
+	render := func(m SettingsModel) []input.SemanticNode {
+		gtx.Reset()
+		gtx.Now = time.Now()
+		view.Layout(gtx, m, func(a SettingsAction) { actions = append(actions, a) })
+		router.Frame(gtx.Ops)
+		return router.AppendSemantics(nil)
+	}
+
+	// Disabled while loading, unavailable, conflicted, or saving.
+	for _, state := range []SettingsAutostart{
+		{Loaded: false, Loading: true},
+		{Loaded: true, Available: false},
+		{Loaded: true, Available: true, Conflict: true},
+		{Loaded: true, Available: true, Saving: true},
+	} {
+		actions = nil
+		render(SettingsModel{Locale: "zh-CN", Autostart: state})
+		view.autostartToggle.Click()
+		render(SettingsModel{Locale: "zh-CN", Autostart: state})
+		if len(actions) != 0 {
+			t.Fatalf("disabled autostart state %+v emitted actions: %+v", state, actions)
+		}
+	}
+
+	// Available and off -> emits ToggleAutostart{Enabled: true}; English and Chinese labels both render.
+	for _, tc := range []struct {
+		locale, wantDesc string
+		enabled          bool
+	}{
+		{"zh-CN", "开机启动", false},
+		{"en-US", "Start on sign-in", true},
+	} {
+		actions = nil
+		m := SettingsModel{
+			Locale:    tc.locale,
+			Autostart: SettingsAutostart{Loaded: true, Available: true, Enabled: tc.enabled},
+		}
+		sem := render(m)
+		if !slices.ContainsFunc(sem, func(n input.SemanticNode) bool { return n.Desc.Description == tc.wantDesc }) {
+			t.Fatalf("locale %s missing autostart switch description %q", tc.locale, tc.wantDesc)
+		}
+		view.autostartToggle.Click()
+		render(m)
+		want := []SettingsAction{{Kind: ToggleAutostart, Enabled: !tc.enabled}}
+		if !slices.Equal(actions, want) {
+			t.Fatalf("locale %s autostart actions = %+v, want %+v", tc.locale, actions, want)
+		}
+	}
+
+	// Read failure exposes Retry button.
+	actions = nil
+	errModel := SettingsModel{
+		Locale:    "en-US",
+		Autostart: SettingsAutostart{Loaded: true, Error: "read_failed"},
+	}
+	render(errModel)
+	view.autostartRetry.Click()
+	render(errModel)
+	if !slices.Equal(actions, []SettingsAction{{Kind: RefreshAutostart}}) {
+		t.Fatalf("retry actions = %+v, want RefreshAutostart", actions)
+	}
+}
+
+func TestSettingsGeneralUpdatesActionsGuardsAndLocalization(t *testing.T) {
+	view := NewSettingsView()
+	var router input.Router
+	gtx := layout.Context{
+		Ops: new(op.Ops), Source: router.Source(), Metric: unit.Metric{PxPerDp: 1, PxPerSp: 1},
+		Constraints: layout.Exact(image.Pt(980, 1280)),
+	}
+	var actions []SettingsAction
+	render := func(m SettingsModel) []input.SemanticNode {
+		gtx.Reset()
+		gtx.Now = time.Now()
+		view.Layout(gtx, m, func(a SettingsAction) { actions = append(actions, a) })
+		router.Frame(gtx.Ops)
+		return router.AppendSemantics(nil)
+	}
+
+	// 1. Dev build disables auto-update, check, and restart.
+	devModel := SettingsModel{
+		Locale: "zh-CN",
+		Update: SettingsUpdate{CurrentVersion: "0.0.0-dev", Channel: "dev", Phase: "idle"},
+	}
+	render(devModel)
+	view.autoUpdateToggle.Click()
+	view.checkUpdateButton.Click()
+	view.restartUpdateButton.Click()
+	render(devModel)
+	if len(actions) != 0 {
+		t.Fatalf("dev build emitted update actions: %+v", actions)
+	}
+
+	// 2. Signed alpha build in idle allows toggling auto-update and checking, but not restarting.
+	alphaIdle := SettingsModel{
+		Locale: "zh-CN",
+		Update: SettingsUpdate{
+			CurrentVersion: "0.1.0-alpha.1",
+			Channel:        "alpha",
+			AutoUpdate:     true,
+			Phase:          "idle",
+			LastCheckedAt:  time.Date(2026, 11, 27, 10, 0, 0, 0, time.UTC),
+		},
+	}
+	render(alphaIdle)
+	view.autoUpdateToggle.Click()
+	view.checkUpdateButton.Click()
+	view.restartUpdateButton.Click()
+	render(alphaIdle)
+	wantIdle := []SettingsAction{
+		{Kind: ToggleAutoUpdate, Enabled: false},
+		{Kind: CheckUpdateNow},
+	}
+	if !slices.Equal(actions, wantIdle) {
+		t.Fatalf("alpha idle actions = %+v, want %+v", actions, wantIdle)
+	}
+
+	// 3. Busy phases block duplicate check and restart clicks.
+	for _, busy := range []SettingsUpdate{
+		{CurrentVersion: "0.1.0-alpha.1", Channel: "alpha", Phase: "checking", TargetVersion: "0.1.0-alpha.2", CanInstall: true},
+		{CurrentVersion: "0.1.0-alpha.1", Channel: "alpha", Phase: "downloading", TargetVersion: "0.1.0-alpha.2", DownloadedBytes: 4 << 20, TotalBytes: 10 << 20, CanInstall: true},
+		{CurrentVersion: "0.1.0-alpha.1", Channel: "alpha", Phase: "installing", TargetVersion: "0.1.0-alpha.2", CanInstall: true},
+		{CurrentVersion: "0.1.0-alpha.1", Channel: "alpha", Phase: "ready", TargetVersion: "0.1.0-alpha.2", CanInstall: true, RestartPending: true},
+	} {
+		actions = nil
+		m := SettingsModel{Locale: "en-US", Update: busy}
+		render(m)
+		view.checkUpdateButton.Click()
+		view.restartUpdateButton.Click()
+		render(m)
+		if len(actions) != 0 {
+			t.Fatalf("busy update state %+v emitted actions: %+v", busy, actions)
+		}
+	}
+
+	// 4. Legacy portable requiring manual migration disables restart and opens release URL.
+	const releaseURL = "https://github.com/SuperQuail/QuailCrate/releases/tag/v0.1.0-alpha.2"
+	actions = nil
+	manualModel := SettingsModel{
+		Locale: "zh-CN",
+		Update: SettingsUpdate{
+			CurrentVersion: "0.1.0-alpha.1",
+			TargetVersion:  "0.1.0-alpha.2",
+			Channel:        "alpha",
+			Phase:          "available",
+			CanInstall:     false,
+			ReleaseURL:     releaseURL,
+		},
+	}
+	sem := render(manualModel)
+	if !slices.ContainsFunc(sem, func(n input.SemanticNode) bool { return n.Desc.Description == "打开发布页下载" }) {
+		t.Fatal("missing manual migration release download button")
+	}
+	view.restartUpdateButton.Click()
+	view.releaseLinkButton.Click()
+	render(manualModel)
+	if !slices.Equal(actions, []SettingsAction{{Kind: OpenUpdateRelease, Value: releaseURL}}) {
+		t.Fatalf("manual portable actions = %+v, want OpenUpdateRelease only", actions)
+	}
+
+	// 5. Ready or failed-with-cached-package allows RestartUpdate.
+	for _, u := range []SettingsUpdate{
+		{CurrentVersion: "0.1.0-alpha.1", TargetVersion: "0.1.0-alpha.2", Channel: "alpha", Phase: "ready", CanInstall: true, ReleaseURL: releaseURL},
+		{CurrentVersion: "0.1.0-alpha.1", TargetVersion: "0.1.0-alpha.2", Channel: "alpha", Phase: "failed", ErrorCode: "install_busy", LastInstallErrorCode: "install_busy", CanInstall: true, ReleaseURL: releaseURL},
+	} {
+		actions = nil
+		m := SettingsModel{Locale: "en-US", Update: u}
+		render(m)
+		view.restartUpdateButton.Click()
+		render(m)
+		if !slices.Equal(actions, []SettingsAction{{Kind: RestartUpdate}}) {
+			t.Fatalf("installable state %+v actions = %+v, want RestartUpdate", u, actions)
+		}
+	}
+
+	// 6. All documented error codes have distinct zh-CN and en-US copy.
+	codes := []string{"network", "release", "signature", "integrity", "download", "cache", "settings", "install_failed", "install_busy", "restart_failed", "unavailable"}
+	for _, code := range codes {
+		zh := settingsFrame{model: SettingsModel{Locale: "zh-CN"}}.updateErrorText(code)
+		en := settingsFrame{model: SettingsModel{Locale: "en-US"}}.updateErrorText(code)
+		if zh == "" || en == "" || zh == en {
+			t.Fatalf("error code %q missing bilingual text: zh=%q en=%q", code, zh, en)
+		}
+	}
+}

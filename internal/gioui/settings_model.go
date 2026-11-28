@@ -1,6 +1,8 @@
 package gioui
 
 import (
+	"time"
+
 	"quailcrate/internal/pluginapps"
 	"quailcrate/internal/theme"
 	v2 "quailcrate/pluginapi/v2"
@@ -28,6 +30,65 @@ type SettingsModel struct {
 	Plugins           []SettingsPlugin
 	Commands          []SettingsCommand
 	AppTabs           []pluginapps.Tab
+	Update            SettingsUpdate
+	Autostart         SettingsAutostart
+}
+
+// SettingsUpdate mirrors update.Snapshot plus UI-managed transient action state.
+type SettingsUpdate struct {
+	CurrentVersion       string
+	TargetVersion        string
+	Channel              string
+	AutoUpdate           bool
+	LastCheckedAt        time.Time
+	DownloadedBytes      int64
+	TotalBytes           int64
+	CanInstall           bool
+	ReleaseURL           string
+	Phase                string
+	ErrorCode            string
+	LastInstallErrorCode string
+	Unavailable          bool
+	AutoUpdateBusy       bool
+	CheckPending         bool
+	RestartPending       bool
+	ActionError          string
+}
+
+func (u SettingsUpdate) Supported() bool {
+	return u.Channel != "" && u.Channel != "dev" && !u.Unavailable
+}
+
+func (u SettingsUpdate) Busy() bool {
+	return u.CheckPending || u.RestartPending ||
+		u.Phase == "checking" || u.Phase == "downloading" || u.Phase == "installing"
+}
+
+func (u SettingsUpdate) CanCheck() bool {
+	return u.Supported() && !u.Busy()
+}
+
+func (u SettingsUpdate) CanRestartToUpdate() bool {
+	return u.CanInstall && u.TargetVersion != "" && !u.Busy()
+}
+
+func (u SettingsUpdate) CanToggleAutoUpdate() bool {
+	return u.Supported() && !u.AutoUpdateBusy && !u.RestartPending && u.Phase != "installing"
+}
+
+// SettingsAutostart mirrors autostart.Status plus UI-managed async load/save state.
+type SettingsAutostart struct {
+	Loaded    bool
+	Loading   bool
+	Saving    bool
+	Available bool
+	Enabled   bool
+	Conflict  bool
+	Error     string
+}
+
+func (a SettingsAutostart) CanToggle() bool {
+	return a.Loaded && !a.Loading && !a.Saving && a.Available && !a.Conflict
 }
 
 type SettingsAppearanceTarget struct {
@@ -70,6 +131,12 @@ const (
 	Rescan               SettingsActionKind = "rescan"
 	OpenPluginDir        SettingsActionKind = "open-directory"
 	CopyDiagnostics      SettingsActionKind = "copy-diagnostics"
+	ToggleAutoUpdate     SettingsActionKind = "toggle-auto-update"
+	CheckUpdateNow       SettingsActionKind = "check-update-now"
+	RestartUpdate        SettingsActionKind = "restart-update"
+	OpenUpdateRelease    SettingsActionKind = "open-update-release"
+	ToggleAutostart      SettingsActionKind = "toggle-autostart"
+	RefreshAutostart     SettingsActionKind = "refresh-autostart"
 	WindowMinimize       SettingsActionKind = "window-minimize"
 	WindowToggleMaximize SettingsActionKind = "window-toggle-maximize"
 	WindowClose          SettingsActionKind = "window-close"

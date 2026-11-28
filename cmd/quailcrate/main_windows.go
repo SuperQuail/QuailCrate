@@ -17,30 +17,73 @@ import (
 	"quailcrate/internal/host"
 	"quailcrate/internal/plugins"
 	"quailcrate/internal/store"
+	"quailcrate/internal/update"
 )
 
 // Populated by the release build after compiling bundled native DLLs.
 var musicDLLSHA256 string
+var releaseVersion = "0.0.0-dev"
+var releaseUpdatePublicKey string
+var releaseUpdateHelperSHA256 string
+
+type loginStartup struct {
+	enabled    bool
+	workingDir string
+}
 
 func main() {
 	dataDir := flag.String("data-dir", "", "override the application data directory")
 	bundle := flag.String("bundle", "", "override the bundled plugin directory for development")
 	trace := flag.Bool("trace", false, "log diagnostic timing")
+	startup := flag.Bool("startup", false, "launch from the Windows sign-in entry")
+	startupWorkDir := flag.String("startup-workdir", "", "working directory recorded for a sign-in launch")
 	flag.Parse()
-	if err := run(*dataDir, *bundle, *trace); err != nil {
+	if err := run(*dataDir, *bundle, *trace, loginStartup{enabled: *startup, workingDir: *startupWorkDir}); err != nil {
 		message := diagnostic.English(err)
 		fmt.Fprintln(os.Stderr, message)
-		startupMessage(message)
+		if !*startup {
+			startupMessage(message)
+		}
 		os.Exit(1)
 	}
 }
 
-func run(dataDir, bundle string, trace bool) error {
-	if dataDir == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return fmt.Errorf("resolve working directory: %w", err)
+func run(dataDir, bundle string, trace bool, startup loginStartup) error {
+	executable, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("resolve application executable: %w", err)
+	}
+	if startup.enabled {
+		workDir := startup.workingDir
+		if workDir == "" {
+			workDir = filepath.Dir(executable)
 		}
+		if !filepath.IsAbs(workDir) {
+			return fmt.Errorf("login startup working directory must be absolute")
+		}
+		if err := os.Chdir(workDir); err != nil {
+			return fmt.Errorf("set login startup working directory: %w", err)
+		}
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("resolve working directory: %w", err)
+	}
+	key := update.ReleasePublicKey(releaseUpdatePublicKey)
+	var root string
+	if key != nil {
+		root, err = update.CanonicalRoot(filepath.Dir(executable))
+		if err != nil {
+			return fmt.Errorf("resolve application installation: %w", err)
+		}
+		if err := update.CheckLaunch(root); err != nil {
+			if err == update.ErrUpdateInProgress {
+				return nil
+			}
+			return fmt.Errorf("check application update lock: %w", err)
+		}
+	}
+	if dataDir == "" {
 		dataDir = filepath.Join(cwd, "data")
 	}
 	base, err := host.PrepareDataDir(dataDir)
@@ -54,11 +97,31 @@ func run(dataDir, bundle string, trace bool) error {
 		defer windows.CloseHandle(handle)
 	}
 	if err == windows.ERROR_ALREADY_EXISTS {
+		if startup.enabled {
+			return nil
+		}
 		return fmt.Errorf("QuailCrate is already running for this data directory.")
 	}
 	if err != nil {
 		return fmt.Errorf("create application instance lock: %w", err)
 	}
+	cache := filepath.Join(base, "cache", "updates")
+	req := update.InstallRequest{Root: root, CacheDir: cache, Version: releaseVersion, WorkingDir: cwd, Args: os.Args[1:]}
+	if root != "" {
+		pending, err := update.PortableNeedsRecovery(root)
+		if err != nil {
+			return fmt.Errorf("check interrupted update: %w", err)
+		}
+		if pending {
+			source, err := update.PortableRecoveryHelper(root, releaseUpdateHelperSHA256)
+			if err != nil {
+				return fmt.Errorf("find updater for recovery: %w", err)
+			}
+			req.Recover, req.Restart = true, true
+			return update.LaunchInstaller(req, source, releaseUpdateHelperSHA256)
+		}
+	}
+	customBundle := bundle != ""
 	bundle, source, err := currentBundle(bundle)
 	if err != nil {
 		return fmt.Errorf("resolve bundled plugin folder: %w", err)
@@ -96,7 +159,35 @@ func run(dataDir, bundle string, trace bool) error {
 		}()
 	}
 	logger.Info("starting QuailCrate", "bundle", bundle, "dataDir", base)
-	return host.New(db, logger, bundle, filepath.Join(base, "user-plugins"), &catalog).Run()
+	app := host.New(db, logger, bundle, filepath.Join(base, "user-plugins"), &catalog)
+	if !customBundle && source == nil && strings.EqualFold(filepath.Base(executable), update.AppName) {
+		if info, err := os.Stat(bundle); err == nil && info.IsDir() {
+			app.ConfigureAutostart(executable, cwd, base)
+		}
+	}
+	config := update.Config{Version: releaseVersion, CacheDir: cache, Settings: db}
+	var launch func(update.Prepared, bool) error
+	if key != nil && source == nil {
+		installed, err := update.RegisteredInstallation(root)
+		if err != nil {
+			logger.Warn("read registered installation for updates", "error", err)
+		} else {
+			config.AssetType = update.PortableManual
+			if installed {
+				config.AssetType = update.Installer
+			} else if manifest, err := update.ReadPortableManifest(root, key); err == nil && manifest.Version == releaseVersion && update.PortableCanApply(root) {
+				config.AssetType = update.Portable
+			}
+			config.PublicKey = key
+			launch = func(prepared update.Prepared, restart bool) error {
+				request := req
+				request.Prepared, request.Restart = prepared, restart
+				return update.LaunchInstaller(request, filepath.Join(root, update.UpdaterName), releaseUpdateHelperSHA256)
+			}
+		}
+	}
+	app.ConfigureUpdates(config, launch)
+	return app.Run()
 }
 
 func startupMessage(message string) {

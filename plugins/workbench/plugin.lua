@@ -7,7 +7,7 @@ return function(request)
         return {id=id,title=title,description=description,icon=icon,cards=cards}
     end
     local settings = {uiVersion=2,title=label("Settings","设置"),appsTitle=label("Apps","应用"),sections={
-        section("general",label("General","常规"),label("Shortcut and interface language","快捷键和界面语言"),"settings",{
+        section("general",label("General","常规"),label("Shortcut, language, sign-in startup, and updates","快捷键、界面语言、开机启动与应用更新"),"settings",{
             card("hotkey","Launcher shortcut","快速启动快捷键"),card("language","Interface language","界面语言")}),
         section("appearance",label("Appearance","外观"),label("Colors, themes, opacity, radius and icon size","颜色、主题、透明度、圆角与图标尺寸"),"palette",{
             card("target","Component","组件"),card("presets","Theme presets","预设主题"),

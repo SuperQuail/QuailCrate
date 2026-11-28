@@ -74,8 +74,11 @@ func (f settingsFrame) declaredCards(gtx layout.Context, section v2.SettingsSect
 			case "hotkey":
 				cardH = f.hotkeyCard(gtx)
 			case "language":
-				f.languageCard(gtx)
-				cardH = p(126)
+				cardH = f.languageCard(gtx)
+			case "autostart":
+				cardH = f.autostartCard(gtx)
+			case "updates":
+				cardH = f.updatesCard(gtx)
 			case "desktopLayout":
 				f.desktop(gtx)
 				cardH = p(104)

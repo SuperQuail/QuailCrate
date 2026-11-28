@@ -48,6 +48,8 @@ type Host struct {
 	bundledDir, userDir string
 	cacheDir            string
 	pluginCatalog       plugins.Catalog
+	updates             hostUpdates
+	autostart           hostAutostart
 
 	lifecycle          sync.Mutex
 	mu                 sync.Mutex
@@ -136,7 +138,12 @@ func (h *Host) Run() error {
 	h.ui = winui.New(winui.Callbacks{
 		ActivateTray:   h.activateTray,
 		PluginApps:     h,
-		Ready:          func() { go h.start() },
+		Ready: func() {
+			if h.updates.service != nil {
+				h.updates.service.Start()
+			}
+			go h.start()
+		},
 		Search:         h.search,
 		OpenResult:     func(r winui.Result) { go h.activateResult(r, nil) },
 		ResultAction:   func(r winui.Result, a winui.ResultMenuAction) { go h.activateResult(r, &a) },
@@ -166,11 +173,22 @@ func (h *Host) Run() error {
 			default:
 			}
 		},
-		Exit: h.cancel,
+		UpdateSnapshot:       h.UpdateSnapshot,
+		SubscribeUpdates:     h.SubscribeUpdates,
+		SetAutoUpdate:        h.SetAutoUpdate,
+		CheckUpdateNow:       h.CheckUpdateNow,
+		RequestUpdateRestart: h.RequestUpdateRestart,
+		AutostartStatus:      h.AutostartStatus,
+		SetAutostart:         h.SetAutostart,
+		TrayExitRequested:    func() { h.updates.trayExit.Store(true) },
+		Exit:              h.cancel,
 	})
 	err := h.ui.Run()
 	h.cancel()
 	h.stopAll()
+	if err == nil {
+		h.installUpdateOnExit()
+	}
 	return err
 }
 
