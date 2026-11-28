@@ -277,9 +277,6 @@ func (f settingsFrame) pluginHeaderHeight(gtx layout.Context, plugin SettingsPlu
 	if tableColumns(gtx).compact {
 		height = p(77)
 	}
-	if plugin.FullSystemAccess {
-		height += p(24)
-	}
 	if plugin.hasMetadataRow() {
 		height += p(36)
 	}
@@ -355,22 +352,30 @@ func (f settingsFrame) pluginRow(gtx layout.Context, plugin SettingsPlugin, inde
 
 	if cols.compact {
 		metaRight := right
+		metaText := runtime + "  ·  " + plugin.Status
 		if permCount > 0 {
 			pillW := p(74)
 			metaRight = max(p(140), right-pillW-p(6))
 			pillRect := image.Rect(metaRight+p(4), p(51), right, p(73))
 			f.drawPermTrigger(gtx, pillRect, &buttons.permToggle, plugin.Name, permPillText, expanded, missingPerms > 0 || plugin.FullSystemAccess)
+		} else if plugin.FullSystemAccess {
+			metaText = runtime + "  ·  " + f.tr("完全权限", "Full access") + "  ·  " + plugin.Status
 		}
-		f.label(gtx, image.Rect(p(57), p(52), metaRight, p(72)), runtime+"  ·  "+plugin.Status, 11.5, font.Medium, statusInk, layout.W)
+		f.label(gtx, image.Rect(p(57), p(52), metaRight, p(72)), metaText, 11.5, font.Medium, statusInk, layout.W)
 	} else {
 		if permCount > 0 {
 			pillRect := image.Rect(cols.perms, p(18), cols.runtime-p(10), p(43))
 			f.drawPermTrigger(gtx, pillRect, &buttons.permToggle, plugin.Name, permPillText, expanded, missingPerms > 0 || plugin.FullSystemAccess)
 		} else if plugin.FullSystemAccess {
 			warnRect := image.Rect(cols.perms, p(18), cols.runtime-p(10), p(43))
-			settingsFill(gtx, warnRect, f.radius(6), f.p.WarningBg)
-			settingsStroke(gtx, warnRect, f.radius(6), 1, theme.WithAlpha(f.p.Warning, 110))
-			f.label(gtx, warnRect, f.tr("完全权限", "Full access"), 11, font.Medium, f.p.Warning, layout.Center)
+			fullLabel := f.tr("完全权限", "Full access")
+			settingsArea(gtx, warnRect, func(gtx layout.Context) {
+				semantic.DescriptionOp(plugin.Name + " · " + fullLabel).Add(gtx.Ops)
+				box := settingsBounds(gtx)
+				settingsFill(gtx, box, f.radius(6), f.p.WarningBg)
+				settingsStroke(gtx, box, f.radius(6), 1, theme.WithAlpha(f.p.Warning, 110))
+				f.label(gtx, box, fullLabel, 11, font.Medium, f.p.Warning, layout.Center)
+			})
 		} else {
 			f.label(gtx, image.Rect(cols.perms, 0, cols.runtime-p(6), p(61)), f.tr("无需权限", "None"), 11.5, font.Normal, theme.WithAlpha(f.p.Secondary, 145), layout.W)
 		}
@@ -385,23 +390,6 @@ func (f settingsFrame) pluginRow(gtx layout.Context, plugin SettingsPlugin, inde
 		}
 		settingsFill(gtx, image.Rect(cols.status, p(27), cols.status+p(7), p(34)), 4, statusInk)
 		f.label(gtx, image.Rect(cols.status+p(13), 0, cols.toggle-p(3), p(61)), plugin.Status, 12.5, font.Normal, statusInk, layout.W)
-	}
-
-	if plugin.FullSystemAccess {
-		badgeTop := p(56)
-		if cols.compact {
-			badgeTop = p(74)
-		}
-		warnText := f.tr("⚠ 原生插件 · 完全系统权限", "⚠ Native DLL · Full System Access")
-		badgeWidth := min(w-p(70), p(230))
-		warnRect := image.Rect(p(57), badgeTop, p(57)+badgeWidth, badgeTop+p(21))
-		settingsArea(gtx, warnRect, func(gtx layout.Context) {
-			semantic.DescriptionOp(plugin.Name + " · " + warnText).Add(gtx.Ops)
-			box := settingsBounds(gtx)
-			settingsFill(gtx, box, f.radius(5), f.p.WarningBg)
-			settingsStroke(gtx, box, f.radius(5), 1, theme.WithAlpha(f.p.Warning, 110))
-			f.label(gtx, image.Rect(p(8), 0, box.Max.X-p(8), box.Max.Y), warnText, 11, font.Medium, f.p.Warning, layout.W)
-		})
 	}
 
 	toggleCtx := gtx

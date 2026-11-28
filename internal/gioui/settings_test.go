@@ -3,6 +3,7 @@ package gioui
 import (
 	"image"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -539,17 +540,23 @@ func TestSettingsThirdPartyNativePluginWarningBadge(t *testing.T) {
 	router.Frame(gtx.Ops)
 
 	semantics := router.AppendSemantics(nil)
-	hasThirdPartyWarn := slices.ContainsFunc(semantics, func(node input.SemanticNode) bool {
-		return node.Desc.Description == "音乐 · ⚠ 原生插件 · 完全系统权限"
+	hasThirdPartyFullAccess := slices.ContainsFunc(semantics, func(node input.SemanticNode) bool {
+		return node.Desc.Description == "音乐 · 完全权限"
 	})
-	if !hasThirdPartyWarn {
-		t.Fatal("missing full-system-access warning badge for third-party DLL plugin")
+	if !hasThirdPartyFullAccess {
+		t.Fatal("missing full-access permission badge for third-party DLL plugin")
 	}
-	hasBundledWarn := slices.ContainsFunc(semantics, func(node input.SemanticNode) bool {
-		return node.Desc.Description == "随包示例 · ⚠ 原生插件 · 完全系统权限"
+	hasBundledFullAccess := slices.ContainsFunc(semantics, func(node input.SemanticNode) bool {
+		return node.Desc.Description == "随包示例 · 完全权限"
 	})
-	if hasBundledWarn {
-		t.Fatal("bundled DLL plugin should not display third-party risk warning badge")
+	if hasBundledFullAccess {
+		t.Fatal("bundled DLL plugin should not display third-party full-access badge")
+	}
+	hasSubRowBanner := slices.ContainsFunc(semantics, func(node input.SemanticNode) bool {
+		return strings.Contains(node.Desc.Description, "原生插件 · 完全系统权限") || strings.Contains(node.Desc.Label, "原生插件 · 完全系统权限")
+	})
+	if hasSubRowBanner {
+		t.Fatal("third-party DLL plugin should not render the redundant sub-row warning banner")
 	}
 }
 
