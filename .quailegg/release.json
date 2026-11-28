@@ -1,10 +1,10 @@
 {
   "schema_version": 2,
-  "version": "0.1.0-alpha.1",
-  "created_at": "2026-11-26T23:00:42.8004834Z",
+  "version": "0.1.0-alpha.2",
+  "created_at": "2026-11-28T08:10:38.9973458Z",
   "mode": "pr",
   "channel": "alpha",
-  "fingerprint": "sha256:89b463dec240c98974e5c659412d7b27b009494aac31364f8c4330f4f8e221d8",
+  "fingerprint": "sha256:98f70aa6440ee8741ef085095b66676d94c95d2daefcf2048964a547d96229a9",
   "repo": {
     "host": "github.com",
     "owner": "SuperQuail",
@@ -17,24 +17,25 @@
       "pwsh -NoProfile -File scripts/build.ps1 -VerifyOnly"
     ],
     "skipped": false,
-    "at": "2026-11-26T23:00:42.8004834Z"
+    "at": "2026-11-28T08:10:38.9973458Z"
   },
   "packages": [
     {
       "name": "go@quailcrate",
       "path": ".",
       "resolver": "go",
-      "current": "0.0.0",
-      "next": "0.1.0-alpha.1",
+      "current": "0.1.0-alpha.1",
+      "next": "0.1.0-alpha.2",
       "bump": "minor",
-      "tag": "v0.1.0-alpha.1",
+      "tag": "v0.1.0-alpha.2",
       "publish": false
     }
   ],
   "releases": [
     {
-      "version": "0.1.0-alpha.1",
-      "tag": "v0.1.0-alpha.1",
+      "version": "0.1.0-alpha.2",
+      "tag": "v0.1.0-alpha.2",
+      "previous_tag": "v0.1.0-alpha.1",
       "packages": [
         "go@quailcrate"
       ],
@@ -80,6 +81,19 @@
       "author": "Wsrsq"
     },
     {
+      "file": ".changes/silent-auto-update.md",
+      "type": "feat",
+      "scope": "updates",
+      "bump": "minor",
+      "packages": [
+        "go@quailcrate"
+      ],
+      "body": "Support Ed25519-signed background update checks, silent Windows installer and managed portable upgrades on tray exit or immediate restart, and update controls in General settings that remain available even when Workbench is disabled.",
+      "commit": "d0e4efce61a7d5cd186f1337a53e5a27d586bc1a",
+      "commit_url": "https://github.com/SuperQuail/QuailCrate/commit/d0e4efce61a7d5cd186f1337a53e5a27d586bc1a",
+      "author": "Wsrsq"
+    },
+    {
       "file": ".changes/windows-audio-ci.md",
       "type": "ci",
       "bump": "patch",
@@ -104,7 +118,27 @@
       "pull_number": 4,
       "pull_url": "https://github.com/SuperQuail/QuailCrate/pull/4",
       "author": "Wsrsq"
+    },
+    {
+      "file": ".changes/windows-signin-startup.md",
+      "type": "feat",
+      "scope": "startup",
+      "bump": "minor",
+      "packages": [
+        "go@quailcrate"
+      ],
+      "body": "Add optional Windows sign-in startup registration in General settings for the current user, preserving the working directory and data profile while detecting conflicting installations and cleaning up on uninstall.",
+      "commit": "d0e4efce61a7d5cd186f1337a53e5a27d586bc1a",
+      "commit_url": "https://github.com/SuperQuail/QuailCrate/commit/d0e4efce61a7d5cd186f1337a53e5a27d586bc1a",
+      "author": "Wsrsq"
     }
+  ],
+  "previous_changes": [
+    ".changes/initial.md",
+    ".changes/installer-unicode-shortcut.md",
+    ".changes/managed-windows-release.md",
+    ".changes/windows-audio-ci.md",
+    ".changes/windows-go-cache.md"
   ],
   "qegg": {
     "version": "0.15.0"
