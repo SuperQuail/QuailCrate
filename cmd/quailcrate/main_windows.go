@@ -20,8 +20,6 @@ import (
 	"quailcrate/internal/update"
 )
 
-// Populated by the release build after compiling bundled native DLLs.
-var musicDLLSHA256 string
 var releaseVersion = "0.0.0-dev"
 var releaseUpdatePublicKey string
 var releaseUpdateHelperSHA256 string
@@ -145,12 +143,7 @@ func run(dataDir, bundle string, trace bool, startup loginStartup) error {
 		return fmt.Errorf("open application database: %w", err)
 	}
 	defer db.Close()
-	catalog := plugins.Catalog{
-		TrustedDLLs: map[string]string{
-			plugins.MusicDLLID: musicDLLSHA256,
-		},
-		SourceNative: source,
-	}
+	catalog := plugins.Catalog{SourceNative: source}
 	if source != nil {
 		defer func() {
 			if err := source.Close(); err != nil {

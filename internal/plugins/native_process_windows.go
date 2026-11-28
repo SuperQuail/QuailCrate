@@ -34,6 +34,9 @@ type nativeProcess struct {
 // The release builder pins the companion it places next to QuailCrate.exe.
 var nativeRunnerSHA256 string
 
+// ReleaseRunnerPin returns the build-time SHA-256 pin for QuailCrateNative.exe, if set.
+func ReleaseRunnerPin() string { return nativeRunnerSHA256 }
+
 var nativeExecutable = func() (string, error) {
 	if nativeRunnerSHA256 == "" {
 		if exe := os.Getenv("QUAILCRATE_NATIVE_RUNNER"); exe != "" {

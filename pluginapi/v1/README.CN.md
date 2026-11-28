@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-随包插件和本地安装的插件使用相同的消息、组件模板和宿主动作。Lua 开发者可以从 [示例计数器](../../examples/lua-widget/) 开始，Windows x64 原生插件可参考随包 [音乐插件](../../plugins/music/)。[协议字段](types.go) 使用 UTF-8 JSON 编码。
+随包插件和本地安装的插件使用相同的消息、组件模板和宿主动作。Lua 开发者可以参考示例计数器，Windows x64 原生插件开发者可以参考独立音乐插件。协议字段使用 UTF-8 JSON 编码。[示例计数器](../../examples/lua-widget/) · [原生音乐插件](https://github.com/SuperQuail/quailcrate-music) · [协议字段](types.go)
 
 ## 插件包
 

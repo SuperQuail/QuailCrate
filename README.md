@@ -2,11 +2,11 @@
 
 [简体中文](README.CN.md)
 
-**QuailCrate** is a lightweight desktop toolbox for Windows 11 (x64) that brings together an application launcher, desktop groups, a desktop calendar, a music player, and extensible plugins—while keeping all settings, data, and caches cleanly inside its own folder instead of cluttering `%LOCALAPPDATA%`.
+**QuailCrate** is a lightweight desktop toolbox for Windows 11 (x64) with an application launcher, desktop groups, a desktop calendar, and extensible plugins. Its settings, data, and caches live in its own `data/` folder.
 
 ![QuailCrate Desktop Overview](docs/screenshots/desktop.png)
 
-| Appearance & Spatial Glass | Music Library | Plugin Management |
+| Appearance & Spatial Glass | Optional Music Plugin | Plugin Management |
 | :---: | :---: | :---: |
 | ![Appearance Settings](docs/screenshots/appearance.png) | ![Music Library](docs/screenshots/music-library.png) | ![Plugin Management](docs/screenshots/plugins.png) |
 
@@ -15,7 +15,7 @@
 - **Application Launcher (`Alt+Space`)** — Quickly search and launch installed applications or items from your desktop groups. Right-click results for quick actions such as adding an app to a group.
 - **Desktop Groups** — Pin categorized launch panels to your desktop for apps, games, folders, files, web links, and project directories, with multi-tab support and drag-and-drop file references.
 - **Desktop Calendar** — Keep a clean monthly calendar widget on your desktop to browse months, select dates, and jump back to today.
-- **Music & Mini Player** — Manage playlists and stream Bilibili audio (QR-code sign-in, `BV` videos, multi-part pages, and favorites) from a standalone app window or a compact desktop mini player.
+- **Music & Mini Player (optional plugin)** — Manage playlists and stream Bilibili audio (QR-code sign-in, `BV` videos, multi-part pages, and favorites) from a standalone app window or a compact desktop mini player.
 - **Wallpaper & Quick Commands** — Run plugin commands from Settings—such as setting a local image as your desktop wallpaper or creating new desktop groups.
 - **Customizable Appearance & Layout** — Choose from built-in theme presets or customize opacity, corner radius, icon size, and colors globally or per component. Drag widget title bars to move, drag the bottom-right corner to resize, or double-click a title bar to roll up a panel.
 - **Portable, Self-Contained Data** — All settings, widget layouts, logs, plugin state, and caches (including WebView2 data) live under `./data/` in the application directory for easy backup and migration.
@@ -38,7 +38,7 @@ Download the latest release for **64-bit Windows 11** from [GitHub Releases](htt
 
 1. **System Tray & Launcher** — After launching `QuailCrate.exe`, click the tray icon to open the launcher, toggle layout editing, adjust themes, or open **Settings**. QuailCrate registers `Alt+Space` on first run; if Windows reports a shortcut conflict, pick another key combination (for example `Ctrl+Alt+Space`) in **Settings → General**.
 2. **Language** — Switch between **System default**, **English**, and **简体中文** under **Settings → General**.
-3. **Desktop Widgets & Groups** — Enable or disable built-in tools in **Settings → Plugins** (such as **Desktop Calendar**, **Desktop Groups**, and **Music**). Run **Settings → Commands → New desktop group** to create a group, then drag files onto it.
+3. **Desktop Widgets & Groups** — Enable or disable the bundled Launcher, Desktop Calendar, Desktop Groups, Wallpaper, and Workbench Lua plugins in **Settings → Plugins**. Run **Settings → Commands → New desktop group** to create a group, then drag files onto it.
 4. **Arrange Your Desktop** — Choose **Edit desktop layout** from the tray menu (or **Settings → Desktop**) to drag and resize widgets freely, then click **Finish editing** to lock positions in place.
 5. **Open Plugin Apps** — Plugins with dedicated windows (such as **Music**) appear under **Settings → Plugins → Apps** and in the tray menu.
 
@@ -47,6 +47,8 @@ Download the latest release for **64-bit Windows 11** from [GitHub Releases](htt
 1. Open **Settings → Plugins** and click **Install from GitHub…**.
 2. Paste a repository URL or `owner/repo`, a Release page or ZIP download link, or a `/tree/` link to a Lua plugin. Repository links use the latest release when available and can fall back to the default branch for Lua plugins. Native DLL plugins and plugins with built web assets use Release ZIPs.
 3. After installation, find the plugin, version, and source repository in the list. New installations start disabled. Switch the plugin on when you are ready to review its permissions and enable it.
+
+Music is a standalone first-party native plugin. To install a published release, enter `SuperQuail/quailcrate-music` in **Install from GitHub…**. The standalone plugin starts with its own library, settings, and widget layout. [Music plugin repository](https://github.com/SuperQuail/quailcrate-music)
 
 To upgrade or reinstall, use **Install from GitHub…** with the desired version. QuailCrate matches the package by its plugin ID and keeps plugin data, saved state, and widget layouts. Installing a lower version asks for confirmation. Review any newly requested permissions when re-enabling the plugin.
 
@@ -61,7 +63,7 @@ QuailCrate supports two plugin runtimes:
 
 ## Building from Source & Plugin Development
 
-Requirements: Windows 11 x64, Go 1.27+, Node.js 24 + `pnpm` (for frontend assets), and Visual Studio 2022 Desktop development with C++ (for native DLL plugins).
+Build the host and its native plugin runner with Windows 11 x64 and Go 1.27+. The native DLL integration tests also require the Visual Studio 2022 C++ x64 toolchain.
 
 ```powershell
 # Run in development mode

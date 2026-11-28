@@ -15,6 +15,7 @@ import (
 	"unsafe"
 
 	"quailcrate/internal/pluginapps"
+	"quailcrate/internal/plugins"
 )
 
 // TestWebView2PackagedPageBridge verifies the pure-Go COM WebView2 container
@@ -200,32 +201,40 @@ func TestWebView2PackagedPageBridge(t *testing.T) {
 	}
 }
 
-// TestWebView2LoadsRealMusicPluginWebApp loads the actual packaged plugins/music/web/
-// assets (index.html, styles.css, qrcode.js, app.js) under strict PageAsset CSP headers
-// inside the real Edge WebView2 Runtime and confirms app.js boots and sends library.refresh.
-func TestWebView2LoadsRealMusicPluginWebApp(t *testing.T) {
+// TestWebView2LoadsPackagedPluginWebApp exercises on-disk module and style assets
+// served through the virtual origin under the PageAsset CSP.
+func TestWebView2LoadsPackagedPluginWebApp(t *testing.T) {
 	if _, _, err := resolveWebView2Proc(); err != nil {
 		t.Skipf("Edge WebView2 Runtime not installed: %v", err)
 	}
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	webDir := filepath.Join("..", "..", "plugins", "music", "web")
-	snapshotRaw, err := os.ReadFile(filepath.Join("..", "..", "plugins", "music", "fixtures", "snapshot-success.json"))
-	if err != nil {
-		t.Fatalf("read music snapshot fixture: %v", err)
+	const entry = "web/index.html"
+	pkg := plugins.Package{Dir: t.TempDir()}
+	if err := os.MkdirAll(filepath.Join(pkg.Dir, "web", "assets"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	for name, body := range map[string]string{
+		entry: `<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="./assets/app.css"><script type="module" src="./assets/app.js"></script>
+</head><body><div id="fixture">Packaged plugin fixture</div></body></html>`,
+		"web/assets/app.css": `#fixture { color: rgb(12, 34, 56); }`,
+		"web/assets/app.js": `
+const state = window.quailcrate.getState();
+const color = getComputedStyle(document.getElementById("fixture")).color;
+void window.quailcrate.send("ready", { greeting: state.greeting, color });`,
+	} {
+		if err := os.WriteFile(filepath.Join(pkg.Dir, filepath.FromSlash(name)), []byte(body), 0600); err != nil {
+			t.Fatal(err)
+		}
 	}
 
-	const origin = "https://music-real-1.quailcrate.invalid"
+	const origin = "https://packaged-web-app.quailcrate.invalid"
 	const docURL = origin + "/index.html"
-	mimeByExt := map[string]string{
-		".html": "text/html; charset=utf-8",
-		".css":  "text/css; charset=utf-8",
-		".js":   "text/javascript; charset=utf-8",
-	}
 
 	module, _, _ := getModuleHandle.Call(0)
-	clsName := "QuailCrateMusicWebViewTest"
+	clsName := "QuailCratePackagedWebViewTest"
 	proc := syscall.NewCallback(func(hwnd, msg, wp, lp uintptr) uintptr {
 		r, _, _ := defWindowProc.Call(hwnd, msg, wp, lp)
 		return r
@@ -237,13 +246,13 @@ func TestWebView2LoadsRealMusicPluginWebApp(t *testing.T) {
 		ClassName: wstr(clsName),
 	}
 	registerClass.Call(uintptr(unsafe.Pointer(&wc)))
-	hwnd, err := window(clsName, "Music WebView2 Smoke", wsExToolWindow, wsPopup, rect{0, 0, 980, 660}, 0, 0, module)
+	hwnd, err := window(clsName, "Packaged WebView2 Smoke", wsExToolWindow, wsPopup, rect{0, 0, 480, 320}, 0, 0, module)
 	if err != nil {
 		t.Fatalf("create window: %v", err)
 	}
 	defer destroyWindow.Call(hwnd)
 
-	userDataDir, err := os.MkdirTemp("", "qc-wv2-music-*")
+	userDataDir, err := os.MkdirTemp("", "qc-wv2-packaged-*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -256,8 +265,8 @@ func TestWebView2LoadsRealMusicPluginWebApp(t *testing.T) {
 		}
 	}()
 
-	var gotRefresh bool
-	var loadedFiles []string
+	var gotReady bool
+	loadedFiles := make(map[string]bool)
 	var wvErr error
 	var wv *webViewHost
 	wv = &webViewHost{
@@ -265,11 +274,11 @@ func TestWebView2LoadsRealMusicPluginWebApp(t *testing.T) {
 		userDataDir:   userDataDir,
 		allowedOrigin: origin,
 		allowedDocURL: docURL,
-		initialTheme:  json.RawMessage(`{"background":"#1E1E2E","surface":"#242436","sidebar":"#181825","border":"#313244","text":"#CDD6F4","secondary":"#9399B2","accent":"#CBA6F7","onAccent":"#11111B","warning":"#F38BA8","warningBg":"#3A232D","selected":"#312A46","hover":"#2A2A3E","isDark":true}`),
+		initialTheme:  json.RawMessage(`{"background":"#1E1E2E","isDark":true}`),
 		initialLocale: "zh-CN",
-		initialState:  snapshotRaw,
+		initialState:  json.RawMessage(`{"greeting":"hello from the host"}`),
 		initialRev:    1,
-		bounds:        rect{0, 0, 980, 660},
+		bounds:        rect{0, 0, 480, 320},
 		visible:       true,
 		cb: webViewCallbacks{
 			ReadAsset: func(uri string) (pluginapps.PageAsset, error) {
@@ -277,42 +286,39 @@ func TestWebView2LoadsRealMusicPluginWebApp(t *testing.T) {
 				if err != nil {
 					return pluginapps.PageAsset{}, err
 				}
-				body, err := os.ReadFile(filepath.Join(webDir, filepath.FromSlash(assetRel)))
+				body, contentType, err := pkg.ReadPageAsset(entry, assetRel)
 				if err != nil {
 					return pluginapps.PageAsset{}, err
 				}
-				loadedFiles = append(loadedFiles, assetRel)
-				ct := mimeByExt[filepath.Ext(assetRel)]
-				if ct == "" {
-					ct = "application/octet-stream"
-				}
-				return pluginapps.PageAsset{ContentType: ct, Body: body}, nil
+				loadedFiles[assetRel] = true
+				return pluginapps.PageAsset{ContentType: contentType, Body: body}, nil
 			},
 			OnMessage: func(sourceURL, rawJSON string) {
-				var env struct {
-					RequestID string `json:"requestId"`
-					Operation string `json:"operation"`
+				defer postQuitMessage.Call(0)
+				msg, err := pluginapps.ParsePageMessage([]byte(rawJSON))
+				if err != nil || sourceURL != docURL || msg.Operation != "ready" || msg.Revision != 1 {
+					wvErr = fmt.Errorf("unexpected page message from %q: %s (%v)", sourceURL, rawJSON, err)
+					return
 				}
-				if json.Unmarshal([]byte(rawJSON), &env) == nil && env.Operation == "library.refresh" {
-					gotRefresh = true
-					wv.postJSON(map[string]any{
-						"type":      "reply",
-						"requestId": env.RequestID,
-						"revision":  1,
-						"value":     map[string]any{"ok": true},
-					})
-					postQuitMessage.Call(0)
+				var args struct {
+					Greeting string `json:"greeting"`
+					Color    string `json:"color"`
 				}
+				if err := json.Unmarshal(msg.Args, &args); err != nil || args.Greeting != "hello from the host" || args.Color != "rgb(12, 34, 56)" {
+					wvErr = fmt.Errorf("module did not see the initial state and applied CSS: %s (%v)", msg.Args, err)
+					return
+				}
+				gotReady = true
 			},
 			OnError: func(err error) {
-				wvErr = err
+				wvErr = fmt.Errorf("%w (loaded=%v)", err, loadedFiles)
 				postQuitMessage.Call(0)
 			},
 		},
 	}
 
 	if err := wv.start(); err != nil {
-		t.Fatalf("start music webview: %v", err)
+		t.Fatalf("start packaged webview: %v", err)
 	}
 	defer wv.close()
 
@@ -326,7 +332,7 @@ func TestWebView2LoadsRealMusicPluginWebApp(t *testing.T) {
 			break
 		}
 		if msg.Message == wmTimer && msg.WParam == 98 {
-			wvErr = fmt.Errorf("timed out waiting for music app.js library.refresh (loaded=%v)", loadedFiles)
+			wvErr = fmt.Errorf("timed out waiting for packaged app.js ready message (loaded=%v)", loadedFiles)
 			break
 		}
 		translateMessage.Call(uintptr(unsafe.Pointer(&msg)))
@@ -336,19 +342,12 @@ func TestWebView2LoadsRealMusicPluginWebApp(t *testing.T) {
 	if wvErr != nil {
 		t.Fatal(wvErr)
 	}
-	if !gotRefresh {
-		t.Fatalf("music web app did not emit library.refresh (loaded=%v)", loadedFiles)
+	if !gotReady {
+		t.Fatalf("packaged web app did not emit ready (loaded=%v)", loadedFiles)
 	}
 	for _, want := range []string{"index.html", "assets/app.js", "assets/app.css"} {
-		found := false
-		for _, got := range loadedFiles {
-			if got == want {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Fatalf("music web app did not load %q; loaded=%v", want, loadedFiles)
+		if !loadedFiles[want] {
+			t.Fatalf("packaged web app did not load %q (loaded=%v)", want, loadedFiles)
 		}
 	}
 }

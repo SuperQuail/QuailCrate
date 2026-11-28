@@ -424,6 +424,7 @@ func TestSettingsAppearanceIconSize(t *testing.T) {
 }
 
 func TestSettingsPluginPermissionsDisplayAndRevoke(t *testing.T) {
+	const pluginID = "example.audio-player"
 	view := NewSettingsView()
 	var router input.Router
 	gtx := layout.Context{
@@ -435,7 +436,7 @@ func TestSettingsPluginPermissionsDisplayAndRevoke(t *testing.T) {
 		Appearance: theme.DefaultConfig(),
 		Plugins: []SettingsPlugin{
 			{
-				ID:                   "quailcrate.music",
+				ID:                   pluginID,
 				Name:                 "音乐播放器",
 				Description:          "独立音乐与 Bilibili 播放插件",
 				Icon:                 "music",
@@ -459,7 +460,7 @@ func TestSettingsPluginPermissionsDisplayAndRevoke(t *testing.T) {
 	view.ShowPlugins()
 	frame()
 
-	btns := view.pluginButtons["quailcrate.music"]
+	btns := view.pluginButtons[pluginID]
 	if btns == nil {
 		t.Fatal("missing plugin buttons")
 	}
@@ -470,8 +471,8 @@ func TestSettingsPluginPermissionsDisplayAndRevoke(t *testing.T) {
 	// Expand the inline permission drawer via the permission summary button.
 	btns.permToggle.Click()
 	frame()
-	if view.expandedPluginPerms != "quailcrate.music" {
-		t.Fatalf("expected expandedPluginPerms=quailcrate.music, got %q", view.expandedPluginPerms)
+	if view.expandedPluginPerms != pluginID {
+		t.Fatalf("expandedPluginPerms = %q, want %q", view.expandedPluginPerms, pluginID)
 	}
 	if btns.revoke["network.http"] == nil || btns.revoke["audio.play"] == nil {
 		t.Fatalf("expected revoke buttons after expanding drawer, got %+v", btns.revoke)
@@ -489,7 +490,7 @@ func TestSettingsPluginPermissionsDisplayAndRevoke(t *testing.T) {
 
 	btns.revoke["network.http"].Click()
 	frame()
-	want := []SettingsAction{{Kind: RevokePermission, PluginID: "quailcrate.music", Value: "network.http"}}
+	want := []SettingsAction{{Kind: RevokePermission, PluginID: pluginID, Value: "network.http"}}
 	if !slices.Equal(actions, want) {
 		t.Fatalf("revoke actions = %+v, want %+v", actions, want)
 	}
@@ -507,8 +508,8 @@ func TestSettingsThirdPartyNativePluginWarningBadge(t *testing.T) {
 		Appearance: theme.DefaultConfig(),
 		Plugins: []SettingsPlugin{
 			{
-				ID:               "quailcrate.music",
-				Name:             "音乐",
+				ID:               "quailcrate.fixture-native",
+				Name:             "随包示例",
 				Description:      "随包原生插件",
 				Runtime:          "dll",
 				State:            "disabled",
@@ -518,9 +519,10 @@ func TestSettingsThirdPartyNativePluginWarningBadge(t *testing.T) {
 				FullSystemAccess: false,
 			},
 			{
-				ID:               "example.native-tools",
-				Name:             "系统工具箱",
+				ID:               "superquail.music",
+				Name:             "音乐",
 				Description:      "第三方全权限原生插件",
+				Icon:             "music",
 				Runtime:          "dll",
 				State:            "disabled",
 				Status:           "已停用",
@@ -538,13 +540,13 @@ func TestSettingsThirdPartyNativePluginWarningBadge(t *testing.T) {
 
 	semantics := router.AppendSemantics(nil)
 	hasThirdPartyWarn := slices.ContainsFunc(semantics, func(node input.SemanticNode) bool {
-		return node.Desc.Description == "系统工具箱 · ⚠ 原生插件 · 完全系统权限"
+		return node.Desc.Description == "音乐 · ⚠ 原生插件 · 完全系统权限"
 	})
 	if !hasThirdPartyWarn {
 		t.Fatal("missing full-system-access warning badge for third-party DLL plugin")
 	}
 	hasBundledWarn := slices.ContainsFunc(semantics, func(node input.SemanticNode) bool {
-		return node.Desc.Description == "音乐 · ⚠ 原生插件 · 完全系统权限"
+		return node.Desc.Description == "随包示例 · ⚠ 原生插件 · 完全系统权限"
 	})
 	if hasBundledWarn {
 		t.Fatal("bundled DLL plugin should not display third-party risk warning badge")

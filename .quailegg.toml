@@ -40,7 +40,7 @@ files = ["dist/QuailCrate-windows-amd64.zip", "dist/QuailCrate-windows-amd64-set
 
 [changes]
 dir = ".changes"
-scope = ["cmd", "internal", "pluginapi", "plugins", "web", "examples", "scripts", "go.mod", "go.sum"]
+scope = ["cmd", "internal", "pluginapi", "plugins", "examples", "scripts", "go.mod", "go.sum"]
 
 [verify]
 commands = ["go mod verify", "pwsh -NoProfile -File scripts/build.ps1 -VerifyOnly"]

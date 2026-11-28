@@ -60,11 +60,12 @@ This file provides essential architectural rules, repository layout, build/test 
 | `internal/pluginapps/` | Packaged HTML app page asset serving, virtual origin isolation, and revisioned page-to-plugin message bridge. |
 | `internal/pluginio/`, `pluginaudio/`, `pluginfiles/`, `musicmedia/` | Existing host toolbox implementations for Lua plugins (HTTP/cookies, MediaFoundation audio, scoped files). **Frozen against scope creep.** |
 | `internal/store/` | SQLite persistence for host settings, widget layouts, plugin enablement/grants, and plugin state. |
-| `plugins/` | Bundled first-party plugins (`launcher`, `calendar`, `desktop-groups`, `wallpaper`, `workbench` in Lua; `music` as a Native DLL). |
+| `plugins/` | Bundled Lua plugins (`launcher`, `calendar`, `desktop-groups`, `wallpaper`, `workbench`). |
 | `examples/` | Standalone third-party reference plugins (`lua-widget`, `notes`). |
-| `web/` | Frontend source projects (e.g. `web/music` built with TypeScript + React + Vite + `pnpm` into `plugins/music/web`). |
 | `scripts/` | PowerShell build and packaging scripts (`build.ps1`, `build-native.ps1`). |
 | `docs/` | Architecture, UI specs, contracts, and the active runtime tiering plan (`plugin-runtime-tiering-plan.md`). |
+
+The first-party Music DLL and its frontend live in the standalone [`SuperQuail/quailcrate-music`](https://github.com/SuperQuail/quailcrate-music) repository. Install its published Release ZIP in **Settings → Plugins → Install from GitHub…**.
 
 ---
 
@@ -85,14 +86,10 @@ go test ./...
 go test -v ./internal/plugins/...
 go test -v ./internal/host/...
 
-# Build web frontend assets (when modifying web/music)
-pnpm --dir web/music build
-
 # Full release package build -> dist/QuailCrate-windows-amd64.zip
-# (Requires MSVC cl.exe x64 toolchain for music.dll and QuailCrateNative.exe)
 .\scripts\build.ps1
 
-# Build release + run native DLL integration tests
+# Build release and run native DLL integration tests (requires MSVC cl.exe x64)
 .\scripts\build.ps1 -TestNative
 ```
 

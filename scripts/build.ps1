@@ -51,48 +51,40 @@ try {
             throw 'Could not derive the update signing public key.'
         }
     }
-    & (Join-Path $PSScriptRoot 'build-native.ps1') -OutputDir $stage -ObjectDir $build
-    $musicDll = Join-Path $stage 'music.dll'
+    & (Join-Path $PSScriptRoot 'build-native.ps1') -OutputDir $stage
     $runner = Join-Path $stage 'QuailCrateNative.exe'
     if (-not $VerifyOnly) {
-        $musicWeb = Join-Path $root 'web/music'
-        $freshFrontend = $Installer -or $env:CI -in 'true', '1'
-        $canBuildFrontend = (Test-Path -LiteralPath (Join-Path $musicWeb 'package.json')) -and (Get-Command pnpm -ErrorAction SilentlyContinue)
-        if ($freshFrontend -and -not $canBuildFrontend) {
-            throw 'The release build requires pnpm and web/music/package.json.'
-        }
-        if ($canBuildFrontend) {
-            & pnpm --dir $musicWeb install --frozen-lockfile
-            if ($LASTEXITCODE -ne 0) {
-                throw "Music web frontend pnpm install failed with exit code $LASTEXITCODE."
-            }
-            & pnpm --dir $musicWeb build
-            if ($LASTEXITCODE -ne 0) {
-                throw "Music web frontend pnpm build failed with exit code $LASTEXITCODE."
-            }
-        }
         Copy-Item -LiteralPath (Join-Path $root 'plugins') -Destination $stage -Recurse
         Copy-Item -LiteralPath (Join-Path $root 'pluginapi') -Destination $stage -Recurse
         Copy-Item -LiteralPath (Join-Path $root 'examples') -Destination $stage -Recurse
         Copy-Item -LiteralPath (Join-Path $root 'README.md') -Destination $stage
         Copy-Item -LiteralPath (Join-Path $root 'README.CN.md') -Destination $stage
-        $bundledDll = Join-Path $stage 'plugins/music/music.dll'
-        Move-Item -LiteralPath $musicDll -Destination $bundledDll -Force
-        $musicDll = $bundledDll
-        $musicHash = (Get-FileHash -LiteralPath $musicDll -Algorithm SHA256).Hash.ToLowerInvariant()
         $runnerHash = (Get-FileHash -LiteralPath $runner -Algorithm SHA256).Hash.ToLowerInvariant()
         $commonFlags = "-H windowsgui -s -w -X main.releaseVersion=$version -X main.releaseUpdatePublicKey=$publicKey"
         $helper = Join-Path $stage 'QuailCrateUpdate.exe'
         & go.exe build -mod=readonly -trimpath -ldflags $commonFlags -o $helper ./cmd/quailcrate-update
         if ($LASTEXITCODE -ne 0) { throw 'Could not build the QuailCrate update helper.' }
         $helperHash = (Get-FileHash -LiteralPath $helper -Algorithm SHA256).Hash.ToLowerInvariant()
-        $ldflags = "$commonFlags -X main.releaseUpdateHelperSHA256=$helperHash -X main.musicDLLSHA256=$musicHash -X quailcrate/internal/plugins.nativeRunnerSHA256=$runnerHash"
+        $ldflags = "$commonFlags -X main.releaseUpdateHelperSHA256=$helperHash -X quailcrate/internal/plugins.nativeRunnerSHA256=$runnerHash"
         & go.exe build -mod=readonly -trimpath -ldflags $ldflags -o (Join-Path $stage 'QuailCrate.exe') ./cmd/quailcrate
         if ($LASTEXITCODE -ne 0) {
             throw "QuailCrate build failed with exit code $LASTEXITCODE."
         }
     }
     if ($TestNative -or $VerifyOnly) {
+        if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue) -or
+            ($env:VSCMD_ARG_TGT_ARCH -and $env:VSCMD_ARG_TGT_ARCH -notin 'x64', 'amd64')) {
+            $locator = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
+            if (-not (Test-Path -LiteralPath $locator)) {
+                throw 'Visual Studio 2022 with C++ x64 build tools is required for native tests.'
+            }
+            $installation = & $locator -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+            if (-not $installation) {
+                throw 'Visual Studio C++ x64 build tools were not found.'
+            }
+            $developerShell = Join-Path $installation 'Common7/Tools/Launch-VsDevShell.ps1'
+            & $developerShell -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
+        }
         $probe = Join-Path $build 'native-probe.dll'
         $companion = Join-Path $build 'native-companion.dll'
         $include = Join-Path $root 'pluginapi/v1'
@@ -106,21 +98,12 @@ try {
         if ($LASTEXITCODE -ne 0) {
             throw "Native companion fixture compilation failed with exit code $LASTEXITCODE."
         }
-        $bvidTestExe = Join-Path $build 'music-bvid-test.exe'
-        $bvidTestSource = Join-Path $root 'internal/plugins/testdata/music_bvid_test.cpp'
-        $musicInclude = Join-Path $root 'plugins/music/native'
-        & cl.exe /nologo /W4 /WX /std:c++17 /EHsc /O2 /MT /utf-8 "/I$musicInclude" "/Fo$build/music-bvid-test.obj" $bvidTestSource /link /MACHINE:X64 "/OUT:$bvidTestExe"
-        if ($LASTEXITCODE -ne 0) {
-            throw "Music BVID vector test compilation failed with exit code $LASTEXITCODE."
-        }
         $env:QUAILCRATE_NATIVE_PROBE = $probe
         $env:QUAILCRATE_NATIVE_COMPANION = $companion
         $env:QUAILCRATE_NATIVE_RUNNER = $runner
-        $env:QUAILCRATE_MUSIC_DLL = $musicDll
-        $env:QUAILCRATE_MUSIC_BVID_TEST = $bvidTestExe
         $testArgs = @('./...')
         if (-not ($Installer -or $VerifyOnly)) {
-            $testArgs = @('-p', '1', '-run', '^Test(Native|ThirdPartyNative|Music)', './internal/plugins', './internal/host')
+            $testArgs = @('-p', '1', '-run', '^Test(Native|ThirdPartyNative)', './internal/plugins', './internal/host')
         }
         # QuailEgg captures command output; keep the original assertions available on failure.
         $logDirectory = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { $build }

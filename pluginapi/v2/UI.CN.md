@@ -79,7 +79,7 @@ Lua 与 Windows DLL 可以提交相同的 JSON 控件树。插件负责组织内
 
 Lua 插件可以用 `require("quailcrate.ui.v2")` 引入宿主随附的模块。模块提供 `node(kind, id, props, events, children)`、`toolbar(id, buttons, in_header)`、`button(id, label, icon, action, variant)` 和 `menu_button(id, label, icon, menu, hover_only)`。它们返回普通 Lua 表，可以继续组合、修改或作为局部组件复用。[模块源码](ui.lua)
 
-Windows DLL 在原有 ABI 的响应缓冲区输出相同的 UTF-8 JSON。DLL 可以独立使用 C/C++ 的 JSON 库或构造函数。包清单的 `abiVersion` 为 1 或 2，UI 协议版本由 `uiVersion` 指定。[ABI 头文件](../v1/quailcrate_plugin.h) · [原生音乐插件入口](../../plugins/music/native/music_plugin.cpp)
+Windows DLL 在原有 ABI 的响应缓冲区输出相同的 UTF-8 JSON。DLL 可以独立使用 C/C++ 的 JSON 库或构造函数。包清单的 `abiVersion` 为 1 或 2，UI 协议版本由 `uiVersion` 指定。[ABI 头文件](../v1/quailcrate_plugin.h) · [原生音乐插件](https://github.com/SuperQuail/quailcrate-music)
 
 ## 用户安装插件的图标资源权限
 

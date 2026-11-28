@@ -170,8 +170,8 @@ try {
         finally { $stream.Dispose() }
     }
 } finally { $archive.Dispose() }
-$requiredFiles = @('QuailCrate.exe', 'QuailCrateNative.exe', 'QuailCrateUpdate.exe', 'plugins\music\music.dll',
-    'plugins\music\web\index.html', 'plugins\music\web\assets\app.js', 'plugins\music\web\assets\app.css',
+$requiredFiles = @('QuailCrate.exe', 'QuailCrateNative.exe', 'QuailCrateUpdate.exe',
+    'plugins\calendar\plugin.lua', 'plugins\desktop-groups\plugin.lua', 'plugins\workbench\plugin.lua',
     'plugins\launcher\plugin.lua', 'pluginapi\v1\quailcrate_plugin.h', 'examples\lua-widget\manifest.json')
 foreach ($required in $requiredFiles) {
     if (-not $expected.ContainsKey($required)) { throw "Missing release ZIP entry: $required" }
@@ -179,7 +179,7 @@ foreach ($required in $requiredFiles) {
 
 $userFiles = @{
     'data\plugins\smoke-test\state.json' = '{"keep":true}'
-    'plugins\music\user-note.txt' = 'Keep this user file.'
+    'plugins\launcher\user-note.txt' = 'Keep this user file.'
 }
 $retired = 'retired-component.txt'
 try {
@@ -189,7 +189,7 @@ try {
         throw 'Update-only setup created a fresh installation.'
     }
     $fixture = Join-Path $work 'fixture'
-    foreach ($relative in 'QuailCrate.exe', 'QuailCrateNative.exe', 'plugins\music\music.dll', $retired) {
+    foreach ($relative in 'QuailCrate.exe', 'QuailCrateNative.exe', 'plugins\launcher\plugin.lua', $retired) {
         $path = Join-Path $fixture $relative
         [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($path)) | Out-Null
         [IO.File]::WriteAllText($path, "Old package: $relative")
