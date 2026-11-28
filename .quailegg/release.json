@@ -1,10 +1,10 @@
 {
   "schema_version": 2,
-  "version": "0.1.0-alpha.2",
-  "created_at": "2026-11-28T08:10:38.9973458Z",
+  "version": "0.1.0-alpha.3",
+  "created_at": "2026-11-28T12:08:30.6209789Z",
   "mode": "pr",
   "channel": "alpha",
-  "fingerprint": "sha256:98f70aa6440ee8741ef085095b66676d94c95d2daefcf2048964a547d96229a9",
+  "fingerprint": "sha256:f82319f9c22648e4ae14b6e2983586914caae39ba3c34e11c92af65e0634acfe",
   "repo": {
     "host": "github.com",
     "owner": "SuperQuail",
@@ -17,25 +17,25 @@
       "pwsh -NoProfile -File scripts/build.ps1 -VerifyOnly"
     ],
     "skipped": false,
-    "at": "2026-11-28T08:10:38.9973458Z"
+    "at": "2026-11-28T12:08:30.6209789Z"
   },
   "packages": [
     {
       "name": "go@quailcrate",
       "path": ".",
       "resolver": "go",
-      "current": "0.1.0-alpha.1",
-      "next": "0.1.0-alpha.2",
+      "current": "0.1.0-alpha.2",
+      "next": "0.1.0-alpha.3",
       "bump": "minor",
-      "tag": "v0.1.0-alpha.2",
+      "tag": "v0.1.0-alpha.3",
       "publish": false
     }
   ],
   "releases": [
     {
-      "version": "0.1.0-alpha.2",
-      "tag": "v0.1.0-alpha.2",
-      "previous_tag": "v0.1.0-alpha.1",
+      "version": "0.1.0-alpha.3",
+      "tag": "v0.1.0-alpha.3",
+      "previous_tag": "v0.1.0-alpha.2",
       "packages": [
         "go@quailcrate"
       ],
@@ -43,6 +43,32 @@
     }
   ],
   "changes": [
+    {
+      "file": ".changes/extract-music-plugin.md",
+      "type": "refactor",
+      "scope": "plugins",
+      "bump": "minor",
+      "packages": [
+        "go@quailcrate"
+      ],
+      "body": "Extract the bundled Music native plugin and its web frontend into the standalone `quailcrate-music` repository so it can be installed and updated independently via GitHub in Plugin settings.",
+      "commit": "0a9d3b6dcd40af2a8552dc116555cfe3bc30c006",
+      "commit_url": "https://github.com/SuperQuail/QuailCrate/commit/0a9d3b6dcd40af2a8552dc116555cfe3bc30c006",
+      "author": "Wsrsq"
+    },
+    {
+      "file": ".changes/github-plugin-install.md",
+      "type": "feat",
+      "scope": "plugins",
+      "bump": "minor",
+      "packages": [
+        "go@quailcrate"
+      ],
+      "body": "Support installing, upgrading, and uninstalling third-party plugins from GitHub repository, Release, ZIP asset, and subdirectory links in Plugin settings, with safe archive staging, transactional package replacement, and full local state cleanup.",
+      "commit": "7cf4598df495ad452d9f49ff591a028b4dec6217",
+      "commit_url": "https://github.com/SuperQuail/QuailCrate/commit/7cf4598df495ad452d9f49ff591a028b4dec6217",
+      "author": "Wsrsq"
+    },
     {
       "file": ".changes/initial.md",
       "type": "feat",
@@ -94,6 +120,19 @@
       "author": "Wsrsq"
     },
     {
+      "file": ".changes/simplify-native-badge.md",
+      "type": "fix",
+      "scope": "settings",
+      "bump": "patch",
+      "packages": [
+        "go@quailcrate"
+      ],
+      "body": "Remove the redundant native full-system-access warning banner below third-party DLL descriptions in Plugin settings while keeping the Full access permission badge and DLL runtime label.",
+      "commit": "e171ad65d14b0ac63561b2aef373d1825c9ee647",
+      "commit_url": "https://github.com/SuperQuail/QuailCrate/commit/e171ad65d14b0ac63561b2aef373d1825c9ee647",
+      "author": "Wsrsq"
+    },
+    {
       "file": ".changes/windows-audio-ci.md",
       "type": "ci",
       "bump": "patch",
@@ -137,8 +176,10 @@
     ".changes/initial.md",
     ".changes/installer-unicode-shortcut.md",
     ".changes/managed-windows-release.md",
+    ".changes/silent-auto-update.md",
     ".changes/windows-audio-ci.md",
-    ".changes/windows-go-cache.md"
+    ".changes/windows-go-cache.md",
+    ".changes/windows-signin-startup.md"
   ],
   "qegg": {
     "version": "0.15.0"
