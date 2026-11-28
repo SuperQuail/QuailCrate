@@ -23,39 +23,90 @@ type Command = gioui.SettingsCommand
 
 func (u *UI) SetSettingsDefinition(def *v2.Settings) {
 	u.post(func() {
-		if u.settingsSource == def && u.settingsLocale == u.locale {
+		if u.settingsDefinition != nil && u.settingsSource == def && u.settingsLocale == u.locale {
 			return
 		}
 		u.settingsSource, u.settingsLocale = def, u.locale
-		u.settingsDefinition = u.withRecoverySection(def)
+		u.settingsDefinition = u.withHostSections(def)
 		u.refreshSettingsLabels()
 		u.refreshSettings()
 	})
 }
 
-func (u *UI) withRecoverySection(def *v2.Settings) *v2.Settings {
-	if def != nil {
-		for _, section := range def.Sections {
-			for _, card := range section.Cards {
-				if card.Type == "plugins" {
-					return def
-				}
+func settingsHasCard(sections []v2.SettingsSection, kind string) bool {
+	for _, section := range sections {
+		for _, card := range section.Cards {
+			if card.Type == kind {
+				return true
 			}
 		}
 	}
-	title := u.label("插件管理", "Plugin management")
-	shell := v2.Settings{UIVersion: 2, Title: title}
+	return false
+}
+
+// withHostSections ensures host-managed settings cards (sign-in startup,
+// application updates, and plugin recovery) stay accessible even if Workbench
+// is disabled or replaced by a third-party settings layout.
+func (u *UI) withHostSections(def *v2.Settings) *v2.Settings {
+	shell := v2.Settings{
+		UIVersion: 2,
+		Title:     u.label("鹌鹑工具箱 · 设置", "QuailCrate · Settings"),
+	}
 	if def != nil {
 		shell = *def
-		shell.Sections = slices.Clone(def.Sections)
+		shell.Sections = make([]v2.SettingsSection, len(def.Sections))
+		for i, sec := range def.Sections {
+			sec.Cards = slices.Clone(sec.Cards)
+			shell.Sections[i] = sec
+		}
 	}
-	// A replacement workbench may omit the system plugin manager. This host
-	// section still lets the user disable or recover that workbench.
-	id := gioui.PagePlugins
-	for shell.Section(id) != nil {
-		id += "-recovery"
+
+	var missingGeneral []v2.SettingsCard
+	if !settingsHasCard(shell.Sections, "autostart") {
+		missingGeneral = append(missingGeneral, v2.SettingsCard{
+			Type:  "autostart",
+			Title: u.label("开机启动", "Start on sign-in"),
+		})
 	}
-	shell.Sections = append(shell.Sections, v2.SettingsSection{ID: id, Title: title, Icon: "settings", Cards: []v2.SettingsCard{{Type: "plugins", Title: title}}})
+	if !settingsHasCard(shell.Sections, "updates") {
+		missingGeneral = append(missingGeneral, v2.SettingsCard{
+			Type:  "updates",
+			Title: u.label("应用更新", "App updates"),
+		})
+	}
+	if len(missingGeneral) > 0 {
+		if sec := shell.Section(gioui.PageGeneral); sec != nil {
+			sec.Cards = append(sec.Cards, missingGeneral...)
+		} else {
+			genSection := v2.SettingsSection{
+				ID:          gioui.PageGeneral,
+				Title:       u.label("常规", "General"),
+				Description: u.label("管理开机启动与应用更新。", "Manage sign-in startup and application updates."),
+				Icon:        "settings",
+				Cards:       missingGeneral,
+			}
+			if def == nil {
+				shell.Sections = append([]v2.SettingsSection{genSection}, shell.Sections...)
+			} else {
+				shell.Sections = append(shell.Sections, genSection)
+			}
+		}
+	}
+
+	if !settingsHasCard(shell.Sections, "plugins") {
+		title := u.label("插件管理", "Plugin management")
+		id := gioui.PagePlugins
+		for shell.Section(id) != nil {
+			id += "-recovery"
+		}
+		shell.Sections = append(shell.Sections, v2.SettingsSection{
+			ID:          id,
+			Title:       title,
+			Description: u.label("管理已安装的插件，可随时重新启用工作台。", "Manage installed plugins and re-enable Workbench anytime."),
+			Icon:        "code",
+			Cards:       []v2.SettingsCard{{Type: "plugins", Title: title}},
+		})
+	}
 	return &shell
 }
 
@@ -121,6 +172,8 @@ func (u *UI) settingsModel() *gioui.SettingsModel {
 		Plugins:           u.plugins,
 		Commands:          u.listedCommands(),
 		AppTabs:           u.appSnapshot.Tabs,
+		Update:            u.settingsUpdateModel(),
+		Autostart:         u.settingsAutostartModel(),
 	}
 	if isSystemHighContrast() {
 		p := highContrastPalette()
@@ -139,6 +192,8 @@ func (u *UI) settingsModel() *gioui.SettingsModel {
 }
 
 func (u *UI) showSettings() {
+	u.startUpdateSubscription()
+	u.refreshAutostart()
 	if u.settings != 0 {
 		u.showNativeSettings()
 		return
@@ -416,5 +471,17 @@ func (u *UI) handleGioSettingsAction(a gioui.SettingsAction) {
 		if err := copySettingsDiagnostics(u.dialogOwner(), a.Value); err != nil {
 			u.Message("Copy diagnostics failed", err.Error())
 		}
+	case gioui.ToggleAutoUpdate:
+		u.setAutoUpdate(a.Enabled)
+	case gioui.CheckUpdateNow:
+		u.checkUpdateNow()
+	case gioui.RestartUpdate:
+		u.requestUpdateRestart()
+	case gioui.OpenUpdateRelease:
+		u.openUpdateRelease(a.Value)
+	case gioui.ToggleAutostart:
+		u.setAutostart(a.Enabled)
+	case gioui.RefreshAutostart:
+		u.refreshAutostart()
 	}
 }

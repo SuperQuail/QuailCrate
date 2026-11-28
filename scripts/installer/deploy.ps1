@@ -1,7 +1,7 @@
 # Embedded in the NSIS installer and uninstaller. Runs under Windows PowerShell 5.1.
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet('Install', 'Uninstall')][string]$Operation,
+    [Parameter(Mandatory)][ValidateSet('Install', 'Upgrade', 'Uninstall')][string]$Operation,
     [Parameter(Mandatory)][string]$InstallDir,
     [Parameter(Mandatory)][string]$Version
 )
@@ -9,7 +9,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $keyName = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\QuailCrate'
 $payload = Join-Path $PSScriptRoot 'payload'
-$installing = $Operation -eq 'Install'
+$installing = $Operation -ne 'Uninstall'
 
 function Assert-OrdinaryPath([string]$Path) {
     while ($Path) {
@@ -153,6 +153,39 @@ function Save-Shortcut([string]$Path, [string]$TargetPath, [string]$WorkingDirec
     }
 }
 
+function Remove-OwnedStartupRegistration([Microsoft.Win32.RegistryKey]$Root, [string]$App, [string]$Sid) {
+    $mutex = [Threading.Mutex]::new($false, "Global\QuailCrate.Autostart.$Sid")
+    $held = $false
+    try {
+        try { $held = $mutex.WaitOne(5000) } catch [Threading.AbandonedMutexException] { $held = $true }
+        if (-not $held) { throw 'Another QuailCrate startup settings change is running.' }
+        $path = 'Software\Microsoft\Windows\CurrentVersion\Run'
+        $options = [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames
+        $ordinary = [Microsoft.Win32.RegistryValueKind]::String
+        $run = $Root.OpenSubKey($path)
+        if ($null -eq $run) { return }
+        try {
+            $command = $run.GetValue('QuailCrate', $null, $options)
+            if ($command -isnot [string] -or $run.GetValueKind('QuailCrate') -ne $ordinary) { return }
+            $prefix = '"' + $App + '" -startup'
+            if (-not ($command.Equals($prefix, [StringComparison]::OrdinalIgnoreCase) -or
+                      $command.StartsWith($prefix + ' ', [StringComparison]::OrdinalIgnoreCase))) { return }
+        } finally { $run.Close() }
+
+        $run = $Root.OpenSubKey($path, $true)
+        if ($null -eq $run) { return }
+        try {
+            if ($run.GetValue('QuailCrate', $null, $options) -ceq $command -and
+                $run.GetValueKind('QuailCrate') -eq $ordinary) {
+                $run.DeleteValue('QuailCrate', $false)
+            }
+        } finally { $run.Close() }
+    } finally {
+        if ($held) { $mutex.ReleaseMutex() }
+        $mutex.Dispose()
+    }
+}
+
 function Write-SetupError($ErrorRecord) {
     if (-not $env:QUAILCRATE_SETUP_LOG) { return }
     try {
@@ -198,8 +231,11 @@ try {
                 $oldValues[$name] = @($registered.GetValueKind($name), $registered.GetValue($name))
             }
         } finally { $registered.Close() }
-    } elseif (-not $installing) {
+    } elseif ($Operation -ne 'Install') {
         throw 'This folder is not the registered installation.'
+    }
+    if ($Operation -eq 'Upgrade' -and -not [IO.File]::Exists($app)) {
+        throw 'The registered application executable is missing.'
     }
 
     $previous = @{}
@@ -292,6 +328,8 @@ try {
             } finally { $key.Close() }
         } else {
             $registry.DeleteSubKey($keyName)
+            $registryTouched = $true
+            Remove-OwnedStartupRegistration $registry $app $sid
         }
     } catch {
         foreach ($path in $created) { [IO.File]::Delete($path) }

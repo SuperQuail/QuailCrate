@@ -2,6 +2,7 @@ Unicode true
 RequestExecutionLevel user
 !include "MUI2.nsh"
 !include "x64.nsh"
+!include "FileFunc.nsh"
 
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\QuailCrate"
 Name "QuailCrate"
@@ -27,6 +28,8 @@ LangString NeedsX64 ${LANG_SIMPCHINESE} "QuailCrate 需要 64 位 Windows。"
 LangString SetupFailed ${LANG_ENGLISH} "Could not update the installation. Close QuailCrate from its tray menu if it is running."
 LangString SetupFailed ${LANG_SIMPCHINESE} "无法更新安装文件。如 QuailCrate 正在运行，请通过托盘菜单退出。"
 
+Var InstallOperation
+
 Function .onInit
     ${IfNot} ${RunningX64}
         MessageBox MB_OK|MB_ICONSTOP "$(NeedsX64)" /SD IDOK
@@ -34,6 +37,17 @@ Function .onInit
         Abort
     ${EndIf}
     SetRegView 64
+    StrCpy $InstallOperation "Install"
+    ${GetParameters} $0
+    ClearErrors
+    ${GetOptions} $0 "/UPDATEONLY" $1
+    ${IfNot} ${Errors}
+        IfSilent +3
+        SetErrorLevel 1
+        Abort
+        StrCpy $InstallOperation "Upgrade"
+        Return
+    ${EndIf}
     ReadRegStr $0 HKCU "${UNINSTALL_KEY}" "InstallLocation"
     ${If} $0 != ""
         StrCpy $INSTDIR $0
@@ -59,7 +73,7 @@ Section "Install"
     SetOutPath "$PLUGINSDIR\payload"
     File /r "${STAGE}\*.*"
     WriteUninstaller "$PLUGINSDIR\payload\Uninstall.exe"
-    !insertmacro Deploy Install
+    !insertmacro Deploy $InstallOperation
 SectionEnd
 
 Section "Uninstall"

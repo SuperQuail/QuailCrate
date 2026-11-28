@@ -76,6 +76,9 @@ func (u *UI) openTrayMenu() {
 		case "settings":
 			u.showSettings()
 		case "exit":
+			if u.cb.TrayExitRequested != nil {
+				u.cb.TrayExitRequested()
+			}
 			postQuitMessage.Call(0)
 		default:
 			entry, ok := entries[id]

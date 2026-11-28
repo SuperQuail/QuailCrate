@@ -1,6 +1,7 @@
 package winui
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,10 +13,12 @@ import (
 	"syscall"
 	"time"
 	"unsafe"
-
+ 
+	"quailcrate/internal/autostart"
 	"quailcrate/internal/gioui"
 	"quailcrate/internal/pluginapps"
 	apptheme "quailcrate/internal/theme"
+	"quailcrate/internal/update"
 	v1 "quailcrate/pluginapi/v1"
 	v2 "quailcrate/pluginapi/v2"
 )
@@ -41,6 +44,14 @@ type Callbacks struct {
 	MoveWidget        func(pluginID, instanceID string, generation uint64, layout Layout)
 	Command           func(pluginID, commandID string)
 	SystemChanged     func()
+	UpdateSnapshot       func() update.Snapshot
+	SubscribeUpdates     func(func(update.Snapshot)) func()
+	SetAutoUpdate        func(context.Context, bool) error
+	CheckUpdateNow       func() bool
+	RequestUpdateRestart func() bool
+	AutostartStatus      func() (autostart.Status, error)
+	SetAutostart         func(bool) error
+	TrayExitRequested func()
 	Exit              func()
 }
 
@@ -138,6 +149,22 @@ type UI struct {
 	closed                                                                bool
 	stopCh                                                                chan struct{}
 	stopOnce                                                              sync.Once
+	updateSnapshot                                                        update.Snapshot
+	updateSubscribed                                                      bool
+	updateUnsubscribe                                                     func()
+	updateUnavailable                                                     bool
+	updateAutoBusy                                                        bool
+	updateCheckPending                                                    bool
+	updateCheckBefore                                                     time.Time
+	updateRestartPending                                                  bool
+	updateActionError                                                     string
+	autostartStatus                                                       autostart.Status
+	autostartLoaded                                                       bool
+	autostartLoading                                                      bool
+	autostartSaving                                                       bool
+	autostartError                                                        string
+	autostartSeq                                                          uint64
+	openURL                                                               func(string) error
 }
 
 var activeUI *UI
@@ -208,6 +235,8 @@ func (u *UI) Run() error {
 	if u.cb.PluginApps != nil {
 		go u.observePluginApps()
 	}
+	u.startUpdateSubscription()
+	u.refreshAutostart()
 	if u.cb.Ready != nil {
 		u.cb.Ready()
 	}
@@ -397,6 +426,10 @@ func (u *UI) label(chinese, english string) string {
 func (u *UI) SetLanguage(preference, effective string) {
 	u.post(func() {
 		u.languagePreference, u.locale = preference, effective
+		if u.settingsDefinition != nil && u.settingsLocale != u.locale {
+			u.settingsLocale = u.locale
+			u.settingsDefinition = u.withHostSections(u.settingsSource)
+		}
 		if u.settings != 0 {
 			u.setSettingsFonts(dpiForWindow(u.settings))
 		}
@@ -515,6 +548,7 @@ func (u *UI) invokeListedCommand(pluginID, commandID string, generation uint64) 
 
 func (u *UI) cleanup() {
 	u.stopOnce.Do(func() { close(u.stopCh) })
+	u.stopUpdateSubscription()
 	u.queueMu.Lock()
 	u.closed = true
 	u.queue = nil

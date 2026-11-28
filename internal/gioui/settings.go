@@ -51,6 +51,13 @@ type SettingsView struct {
 	winMin, winMax, winClose       widget.Clickable
 	languages                      [3]widget.Clickable
 	apply, edit, rescan, directory widget.Clickable
+	generalList                    widget.List
+	autostartToggle                widget.Clickable
+	autostartRetry                 widget.Clickable
+	autoUpdateToggle               widget.Clickable
+	checkUpdateButton              widget.Clickable
+	restartUpdateButton            widget.Clickable
+	releaseLinkButton              widget.Clickable
 	shortcut                       widget.Editor
 	lastHotkey                     string
 	pluginsList, commandsList      widget.List
@@ -193,8 +200,8 @@ func (s *SettingsView) Layout(gtx layout.Context, m SettingsModel, emit func(Set
 		s.theme.Shaper = NewTextShaper()
 		s.shortcut.SingleLine, s.shortcut.Submit = true, true
 		s.shortcut.MaxLen = 64
-		s.pluginsList.Axis, s.commandsList.Axis, s.appearanceList.Axis, s.appsList.Axis, s.presetList.Axis =
-			layout.Vertical, layout.Vertical, layout.Vertical, layout.Vertical, layout.Vertical
+		s.pluginsList.Axis, s.commandsList.Axis, s.appearanceList.Axis, s.appsList.Axis, s.presetList.Axis, s.generalList.Axis =
+			layout.Vertical, layout.Vertical, layout.Vertical, layout.Vertical, layout.Vertical, layout.Vertical
 		s.presetButtons = make([]widget.Clickable, len(theme.Presets()))
 		s.pluginButtons = make(map[string]*settingsPluginButtons)
 		s.commandButtons = make(map[[2]string]*widget.Clickable)
@@ -643,7 +650,7 @@ func (f settingsFrame) content(gtx layout.Context) {
 	pad := f.contentPadding(gtx)
 	title := f.navTitles()[f.page]
 	subtitle := [...]string{
-		f.tr("配置快速启动快捷键与系统界面语言。", "Configure launcher shortcut and display language."),
+		f.tr("配置快速启动快捷键、界面语言、开机启动与应用更新。", "Configure launcher shortcut, display language, sign-in startup, and updates."),
 		f.tr("切换内置主题配色，为每个组件定制独立外观与壁纸透明穿透。", "Pick built-in themes and customize per-component colors and wallpaper opacity."),
 		f.tr("调整桌面组件的布局位置与锁定编辑状态。", "Arrange desktop widgets and manage layout editing."),
 		f.tr("运行已启用插件提供的公开桌面与设置指令。", "Run public commands contributed by enabled plugins."),
@@ -680,6 +687,10 @@ func (f settingsFrame) content(gtx layout.Context) {
 		})
 		return
 	}
+	if f.page == generalPage {
+		settingsArea(gtx, image.Rect(0, bodyTop, w, h), f.general)
+		return
+	}
 	if f.page == appearancePage {
 		settingsArea(gtx, image.Rect(0, bodyTop, w, h), f.appearance)
 		return
@@ -692,8 +703,6 @@ func (f settingsFrame) content(gtx layout.Context) {
 			f.commands(gtx)
 		case pluginsPage:
 			f.plugins(gtx)
-		default:
-			f.general(gtx)
 		}
 	})
 }

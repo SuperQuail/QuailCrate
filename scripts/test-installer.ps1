@@ -131,7 +131,7 @@ function Invoke-Setup([string]$Executable, [string]$Arguments, [switch]$ExpectFa
         else { $env:QUAILCRATE_SETUP_LOG = $previousLog }
     }
     if ($ExpectFailure) {
-        if ($process.ExitCode -eq 0) { throw 'Upgrade succeeded while the installed executable was locked.' }
+        if ($process.ExitCode -eq 0) { throw "Setup unexpectedly succeeded with arguments: $Arguments" }
     } elseif ($process.ExitCode -ne 0) {
         $detail = ''
         if ([IO.File]::Exists($setupLog)) {
@@ -170,7 +170,7 @@ try {
         finally { $stream.Dispose() }
     }
 } finally { $archive.Dispose() }
-$requiredFiles = @('QuailCrate.exe', 'QuailCrateNative.exe', 'plugins\music\music.dll',
+$requiredFiles = @('QuailCrate.exe', 'QuailCrateNative.exe', 'QuailCrateUpdate.exe', 'plugins\music\music.dll',
     'plugins\music\web\index.html', 'plugins\music\web\assets\app.js', 'plugins\music\web\assets\app.css',
     'plugins\launcher\plugin.lua', 'pluginapi\v1\quailcrate_plugin.h', 'examples\lua-widget\manifest.json')
 foreach ($required in $requiredFiles) {
@@ -183,6 +183,11 @@ $userFiles = @{
 }
 $retired = 'retired-component.txt'
 try {
+    $upgrade = "/S /UPDATEONLY /D=$install"
+    Invoke-Setup $setup.FullName $upgrade -ExpectFailure
+    if ((Get-Registration) -or [IO.Directory]::Exists($install)) {
+        throw 'Update-only setup created a fresh installation.'
+    }
     $fixture = Join-Path $work 'fixture'
     foreach ($relative in 'QuailCrate.exe', 'QuailCrateNative.exe', 'plugins\music\music.dll', $retired) {
         $path = Join-Path $fixture $relative
@@ -202,10 +207,14 @@ try {
         [IO.File]::WriteAllText($path, $userFiles[$relative])
     }
 
+    $other = Join-Path $work 'other installation'
+    Invoke-Setup $setup.FullName "/S /UPDATEONLY /D=$other" -ExpectFailure
+    if ([IO.Directory]::Exists($other)) { throw 'Update-only setup used the wrong installation path.' }
     $locked = [IO.File]::Open((Join-Path $install 'QuailCrate.exe'), 'Open', 'Read', 'Read')
-    try { Invoke-Setup $setup.FullName '/S' -ExpectFailure } finally { $locked.Dispose() }
+    try { Invoke-Setup $setup.FullName $upgrade -ExpectFailure } finally { $locked.Dispose() }
     Assert-Installation $oldVersion
-    # With no /D override, an upgrade must find the previous installation.
+    Invoke-Setup $setup.FullName $upgrade
+    # A manual setup still locates an existing installation without /D.
     Invoke-Setup $setup.FullName '/S'
     Assert-Installation $version
     $matched = 0

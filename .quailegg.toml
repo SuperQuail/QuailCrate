@@ -23,11 +23,20 @@ yaml = '''
   shell: pwsh
   run: throw 'Run the release workflow from main.'
 - uses: ./.github/actions/setup-windows
+- name: Configure update signing
+  shell: pwsh
+  env:
+    QUAILCRATE_UPDATE_SIGNING_KEY: ${{ secrets.QUAILCRATE_UPDATE_SIGNING_KEY }}
+  run: |
+    if ($env:QUAILCRATE_UPDATE_SIGNING_KEY -and $env:QUAILCRATE_UPDATE_SIGNING_KEY -cnotmatch '^(?:[A-Za-z0-9+/]{43}=|[A-Za-z0-9+/]{86}==)$') {
+      throw 'QUAILCRATE_UPDATE_SIGNING_KEY must be one base64-encoded Ed25519 seed or private key.'
+    }
+    "QUAILCRATE_UPDATE_SIGNING_KEY=$env:QUAILCRATE_UPDATE_SIGNING_KEY" >> $env:GITHUB_ENV
 '''
 
 [release.assets]
-commands = ["pwsh -NoProfile -File scripts/verify-windows.ps1"]
-files = ["dist/QuailCrate-windows-amd64.zip", "dist/QuailCrate-windows-amd64-setup.exe"]
+commands = ["pwsh -NoProfile -File scripts/verify-windows.ps1 -SignedRelease"]
+files = ["dist/QuailCrate-windows-amd64.zip", "dist/QuailCrate-windows-amd64-setup.exe", "dist/update-manifest.json", "dist/update-manifest.sig"]
 
 [changes]
 dir = ".changes"

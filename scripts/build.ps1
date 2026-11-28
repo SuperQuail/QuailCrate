@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([switch]$TestNative, [switch]$Installer, [switch]$VerifyOnly)
+param([switch]$TestNative, [switch]$Installer, [switch]$VerifyOnly, [switch]$SignedRelease)
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -7,6 +7,25 @@ $build = Join-Path $root 'build'
 $stage = Join-Path $build ('_release-' + [guid]::NewGuid().ToString('N'))
 $dist = Join-Path $root 'dist'
 $temporary = Join-Path $build 'tmp'
+
+$version = $env:QEGG_VERSION
+if (-not $version) {
+    $version = '0.0.0-dev'
+    $revision = $env:GITHUB_SHA
+    if (-not $revision -and (Get-Command git -ErrorAction SilentlyContinue)) {
+        $revision = & git -C $root rev-parse --verify --quiet HEAD
+    }
+    if ($revision -match '^[0-9a-fA-F]{7,64}$') {
+        $version += '+' + $revision.Substring(0, 7)
+    }
+}
+if ($version -cnotmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$') {
+    throw 'Invalid QEGG_VERSION.'
+}
+$signingKey = $env:QUAILCRATE_UPDATE_SIGNING_KEY
+if ($SignedRelease -and (-not $Installer -or $VerifyOnly -or -not $env:QEGG_VERSION -or -not $signingKey)) {
+    throw 'A signed release requires -Installer, QEGG_VERSION, and QUAILCRATE_UPDATE_SIGNING_KEY.'
+}
 
 New-Item -Type Directory -Force -Path $stage, $temporary | Out-Null
 $env:GOOS = 'windows'
@@ -19,7 +38,19 @@ $env:TMP = $temporary
 $env:TEMP = $temporary
 
 Push-Location $root
+# Only the signing executable receives key material. Package builds and tests run without it.
+Remove-Item Env:QUAILCRATE_UPDATE_SIGNING_KEY -ErrorAction SilentlyContinue
 try {
+    $publicKey = ''
+    if ($SignedRelease) {
+        $signer = "$stage-sign.exe"
+        & go.exe build -mod=readonly -trimpath -o $signer ./cmd/quailcrate-update-release
+        if ($LASTEXITCODE -ne 0) { throw 'Could not build the update signing tool.' }
+        $publicKey = $signingKey | & $signer public-key
+        if ($LASTEXITCODE -ne 0 -or $publicKey -cnotmatch '^[A-Za-z0-9+/]{43}=$') {
+            throw 'Could not derive the update signing public key.'
+        }
+    }
     & (Join-Path $PSScriptRoot 'build-native.ps1') -OutputDir $stage -ObjectDir $build
     $musicDll = Join-Path $stage 'music.dll'
     $runner = Join-Path $stage 'QuailCrateNative.exe'
@@ -50,7 +81,12 @@ try {
         $musicDll = $bundledDll
         $musicHash = (Get-FileHash -LiteralPath $musicDll -Algorithm SHA256).Hash.ToLowerInvariant()
         $runnerHash = (Get-FileHash -LiteralPath $runner -Algorithm SHA256).Hash.ToLowerInvariant()
-        $ldflags = "-H windowsgui -s -w -X main.musicDLLSHA256=$musicHash -X quailcrate/internal/plugins.nativeRunnerSHA256=$runnerHash"
+        $commonFlags = "-H windowsgui -s -w -X main.releaseVersion=$version -X main.releaseUpdatePublicKey=$publicKey"
+        $helper = Join-Path $stage 'QuailCrateUpdate.exe'
+        & go.exe build -mod=readonly -trimpath -ldflags $commonFlags -o $helper ./cmd/quailcrate-update
+        if ($LASTEXITCODE -ne 0) { throw 'Could not build the QuailCrate update helper.' }
+        $helperHash = (Get-FileHash -LiteralPath $helper -Algorithm SHA256).Hash.ToLowerInvariant()
+        $ldflags = "$commonFlags -X main.releaseUpdateHelperSHA256=$helperHash -X main.musicDLLSHA256=$musicHash -X quailcrate/internal/plugins.nativeRunnerSHA256=$runnerHash"
         & go.exe build -mod=readonly -trimpath -ldflags $ldflags -o (Join-Path $stage 'QuailCrate.exe') ./cmd/quailcrate
         if ($LASTEXITCODE -ne 0) {
             throw "QuailCrate build failed with exit code $LASTEXITCODE."
@@ -103,33 +139,37 @@ try {
         }
     }
     if ($VerifyOnly) { return }
+    if ($SignedRelease) {
+        $signingKey | & $signer portable -stage $stage -version $version
+        if ($LASTEXITCODE -ne 0) { throw 'Could not sign the portable file inventory.' }
+    }
     New-Item -Type Directory -Force -Path $dist | Out-Null
     $zip = Join-Path $dist 'QuailCrate-windows-amd64.zip'
     $builtZip = "$stage.zip"
     Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $builtZip
     if ((Get-Item -LiteralPath $builtZip).Length -le 0) { throw 'Release ZIP is empty.' }
     if ($Installer) {
-        $version = $env:QEGG_VERSION
-        if (-not $version) {
-            $version = '0.0.0-dev'
-            $revision = $env:GITHUB_SHA
-            if (-not $revision -and (Get-Command git -ErrorAction SilentlyContinue)) {
-                $revision = & git rev-parse --verify --quiet HEAD
-            }
-            if ($revision -match '^[0-9a-fA-F]{7,64}$') {
-                $version += '+' + $revision.Substring(0, 7)
-            }
-        }
         $setup = Join-Path $dist 'QuailCrate-windows-amd64-setup.exe'
         $builtSetup = "$stage.exe"
         & (Join-Path $PSScriptRoot 'installer/build-installer.ps1') -Stage $stage -Output $builtSetup -Version $version
         if ((Get-Item -LiteralPath $builtSetup).Length -le 0) { throw 'Release installer is empty.' }
+        if ($SignedRelease) {
+            $metadata = New-Item -Type Directory -Path "$stage-metadata"
+            $signingKey | & $signer release -version $version -setup $builtSetup -zip $builtZip -out $metadata.FullName
+            if ($LASTEXITCODE -ne 0) { throw 'Could not sign the release update manifest.' }
+        }
         Move-Item -LiteralPath $builtSetup -Destination $setup -Force
         Write-Output "Installer: $setup"
     }
     Move-Item -LiteralPath $builtZip -Destination $zip -Force
+    foreach ($name in 'update-manifest.json', 'update-manifest.sig') {
+        $destination = Join-Path $dist $name
+        if ($SignedRelease) { Move-Item -LiteralPath (Join-Path $metadata.FullName $name) -Destination $destination -Force }
+        else { [IO.File]::Delete($destination) }
+    }
     Write-Output "Stage: $stage"
     Write-Output "Release ZIP: $zip"
 } finally {
+    if ($null -ne $signingKey) { $env:QUAILCRATE_UPDATE_SIGNING_KEY = $signingKey }
     Pop-Location
 }
