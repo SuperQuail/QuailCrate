@@ -52,6 +52,12 @@ func compareNumeric(a, b string) int {
 	return strings.Compare(a, b)
 }
 
+// ValidVersion reports whether text can be compared as a Semantic Version.
+func ValidVersion(text string) bool {
+	_, valid := parseVersion(text)
+	return valid
+}
+
 // Newer compares valid Semantic Versions without considering build metadata.
 func Newer(candidate, current string) bool {
 	a, validA := parseVersion(candidate)

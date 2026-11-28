@@ -15,6 +15,7 @@ type hostUpdates struct {
 }
 
 func (h *Host) ConfigureUpdates(config update.Config, launch func(update.Prepared, bool) error) {
+	h.releaseVersion = config.Version
 	service := update.New(h.ctx, config)
 	if code, err := update.ConsumeInstallFailure(config.CacheDir); err != nil {
 		h.log.Warn("previous update", "code", code, "error", err)

@@ -35,8 +35,25 @@ type session struct {
 
 func hashed(s string) string { h := sha256.Sum256([]byte(s)); return hex.EncodeToString(h[:]) }
 func (s *Service) path(key sessionKey) string {
-	return filepath.Join(s.dir, hashed(key.plugin), hashed(key.name)+".dat")
+	return filepath.Join(s.PluginSessionDir(key.plugin), hashed(key.name)+".dat")
 }
+
+func (s *Service) PluginSessionDir(pluginID string) string {
+	return filepath.Join(s.dir, hashed(pluginID))
+}
+
+// ForgetPluginSessions waits for any in-progress save and drops cached sessions.
+// The host calls it after stopping the plugin and before moving its stored data.
+func (s *Service) ForgetPluginSessions(pluginID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for key := range s.sessions {
+		if key.plugin == pluginID {
+			delete(s.sessions, key)
+		}
+	}
+}
+
 func (s *session) entropy() []byte {
 	h := sha256.Sum256([]byte("quailcrate plugin cookies\x00" + s.key.plugin + "\x00" + s.key.name))
 	return h[:]

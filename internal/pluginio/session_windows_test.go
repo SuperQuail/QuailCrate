@@ -75,3 +75,27 @@ func TestProtectedSessions(t *testing.T) {
 		t.Fatal("logout did not clear cookie")
 	}
 }
+
+func TestForgetPluginSessions(t *testing.T) {
+	s := New(t.TempDir())
+	first := s.Instance(t.Context(), "first", false)
+	other := s.Instance(t.Context(), "other", false)
+	old, err := first.getSession("profile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	untouched, err := other.getSession("profile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.ForgetPluginSessions("first")
+	if err := old.save(t.Context(), nil, nil); !errors.Is(err, errSession) {
+		t.Fatalf("forgotten session can still save: %v", err)
+	}
+	if current, err := first.getSession("profile"); err != nil || current == old {
+		t.Fatalf("plugin reused a forgotten session: %v", err)
+	}
+	if current, err := other.getSession("profile"); err != nil || current != untouched {
+		t.Fatalf("forgetting one plugin affected another plugin's session: %v", err)
+	}
+}

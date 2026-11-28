@@ -551,6 +551,92 @@ func TestSettingsThirdPartyNativePluginWarningBadge(t *testing.T) {
 	}
 }
 
+func TestSettingsGitHubPluginActionsAndInstallStatus(t *testing.T) {
+	view := NewSettingsView()
+	view.ShowPlugins()
+	var router input.Router
+	gtx := layout.Context{
+		Ops: new(op.Ops), Source: router.Source(), Metric: unit.Metric{PxPerDp: 1.25, PxPerSp: 1.25},
+		Constraints: layout.Exact(image.Pt(620, 650)),
+	}
+	m := SettingsModel{
+		Locale: "en-US",
+		Definition: &v2.Settings{Sections: []v2.SettingsSection{
+			{ID: PagePlugins, Title: "Plugins", Cards: []v2.SettingsCard{{Type: "plugins", Title: "Plugin management"}}},
+		}},
+		Plugins: []SettingsPlugin{
+			{ID: "example.counter", Name: "Counter", Version: "1.2.0", SourceRepo: "owner/counter", HomepageURL: "https://github.com/owner/counter", CanUninstall: true},
+			{ID: "quailcrate.calendar", Name: "Calendar", Version: "2.0.0", Bundled: true},
+		},
+	}
+	var actions []SettingsAction
+	frame := func() []input.SemanticNode {
+		gtx.Reset()
+		gtx.Now = time.Now()
+		view.Layout(gtx, m, func(a SettingsAction) { actions = append(actions, a) })
+		router.Frame(gtx.Ops)
+		return router.AppendSemantics(nil)
+	}
+	semantics := frame()
+	for _, label := range []string{"Counter", "v1.2.0", "owner/counter", "Calendar", "v2.0.0"} {
+		if !slices.ContainsFunc(semantics, func(n input.SemanticNode) bool { return n.Desc.Label == label }) {
+			t.Errorf("missing visible plugin metadata %q", label)
+		}
+	}
+	if slices.ContainsFunc(semantics, func(n input.SemanticNode) bool { return n.Desc.Description == "Calendar · Uninstall" }) {
+		t.Error("bundled plugin exposes an uninstall button")
+	}
+	buttons := view.pluginButtons["example.counter"]
+	view.installPlugin.Click()
+	buttons.homepage.Click()
+	buttons.uninstall.Click()
+	frame()
+	want := []SettingsAction{
+		{Kind: InstallPluginFromGitHub},
+		{Kind: UninstallPlugin, PluginID: "example.counter"},
+		{Kind: OpenPluginHomepage, PluginID: "example.counter"},
+	}
+	if !slices.Equal(actions, want) {
+		t.Fatalf("dispatched actions = %+v, want %+v", actions, want)
+	}
+
+	m.PluginInstall = SettingsPluginInstall{Busy: true, Message: "Downloading and verifying the package…"}
+	view.installPlugin.Click()
+	buttons.uninstall.Click()
+	semantics = frame()
+	if !slices.Equal(actions, want) {
+		t.Fatalf("dispatch while busy = %+v, want %+v", actions, want)
+	}
+	for _, button := range []string{"Installing…", "Counter · Uninstall"} {
+		if !slices.ContainsFunc(semantics, func(n input.SemanticNode) bool { return n.Desc.Description == button && n.Desc.Disabled }) {
+			t.Errorf("missing disabled install control %q", button)
+		}
+	}
+	if !slices.ContainsFunc(semantics, func(n input.SemanticNode) bool { return n.Desc.Label == m.PluginInstall.Message }) {
+		t.Error("missing accessible installation progress")
+	}
+
+	m.PluginInstall = SettingsPluginInstall{Busy: true, Uninstalling: true}
+	semantics = frame()
+	if !slices.ContainsFunc(semantics, func(n input.SemanticNode) bool {
+		return n.Desc.Description == "Install from GitHub…" && n.Desc.Disabled
+	}) {
+		t.Error("missing disabled install button during uninstall")
+	}
+
+	m.Locale = "zh-CN"
+	m.PluginInstall = SettingsPluginInstall{Message: "无法确定应安装的 ZIP 附件，请复制对应的下载链接。", IsError: true}
+	semantics = frame()
+	if !slices.ContainsFunc(semantics, func(n input.SemanticNode) bool { return n.Desc.Label == m.PluginInstall.Message }) {
+		t.Error("missing accessible installation error")
+	}
+	if !slices.ContainsFunc(semantics, func(n input.SemanticNode) bool {
+		return n.Desc.Description == "从 GitHub 安装…" && !n.Desc.Disabled
+	}) {
+		t.Error("missing enabled Chinese install button after error")
+	}
+}
+
 func TestSettingsGeneralAutostartStatesAndActions(t *testing.T) {
 	view := NewSettingsView()
 	var router input.Router

@@ -51,6 +51,7 @@ type SettingsView struct {
 	winMin, winMax, winClose       widget.Clickable
 	languages                      [3]widget.Clickable
 	apply, edit, rescan, directory widget.Clickable
+	installPlugin                  widget.Clickable
 	generalList                    widget.List
 	autostartToggle                widget.Clickable
 	autostartRetry                 widget.Clickable
@@ -96,6 +97,7 @@ type SettingsView struct {
 
 type settingsPluginButtons struct {
 	toggle, copy, permToggle widget.Clickable
+	homepage, uninstall      widget.Clickable
 	revoke                   map[string]*widget.Clickable
 }
 
@@ -433,12 +435,27 @@ func (f settingsFrame) button(gtx layout.Context, r image.Rectangle, b *widget.C
 }
 
 func (f settingsFrame) textButton(gtx layout.Context, r image.Rectangle, b *widget.Clickable, title string, primary bool) {
+	f.textButtonWithDescription(gtx, r, b, title, title, primary, false)
+}
+
+func (f settingsFrame) textButtonWithDescription(gtx layout.Context, r image.Rectangle, b *widget.Clickable, title, description string, primary, disabled bool) {
 	btnR := f.radius(7)
-	f.button(gtx, r, b, title, func(gtx layout.Context) {
+	if disabled {
+		settingsArea(gtx, r, func(gtx layout.Context) {
+			semantic.Button.Add(gtx.Ops)
+			semantic.DescriptionOp(description).Add(gtx.Ops)
+			semantic.EnabledOp(false).Add(gtx.Ops)
+			settingsFill(gtx, settingsBounds(gtx), btnR, f.p.Background)
+			settingsStroke(gtx, settingsBounds(gtx), btnR, 1, f.p.Line)
+			f.label(gtx, settingsBounds(gtx), title, 13, font.Medium, f.p.Secondary, layout.Center)
+		})
+		return
+	}
+	f.button(gtx, r, b, description, func(gtx layout.Context) {
 		c := f.p.Text
 		if primary {
 			bg := f.p.Accent
-			if b.Hovered() {
+			if b.Hovered() || b.Pressed() {
 				bg = theme.Blend(f.p.Accent, f.p.Text, 0.14)
 			}
 			settingsFill(gtx, settingsBounds(gtx), btnR, bg)

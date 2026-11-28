@@ -22,11 +22,42 @@ Give each plugin a directory with a UTF-8 `manifest.json` and a relative entry f
 }
 ```
 
-- IDs use lowercase letters, digits, periods, hyphens, and underscores. Each dot-separated segment starts with a letter or digit. The full ID is unique. Use semantic versioning for `version`.
+- IDs use lowercase letters, digits, periods, hyphens, and underscores. Each dot-separated segment starts with a letter or digit. The full ID is unique. `quailcrate` and `quailcrate.*` are reserved for bundled plugins. Use semantic versioning for `version` and keep the same ID across releases.
 - Declare the contribution categories used by `init` in `contributes`. The supported categories are `search`, `commands`, `widgets`, and `appTabs`.
 - The optional `icon` selects a symbol for the plugin list. Supported values are `search`, `folder`, `calendar`, `image`, and `code`. The list uses a generic plugin symbol for other values.
+- The optional `homepage` is an HTTPS URL of up to 512 bytes. The plugin list uses it for the **Homepage** button.
+- The optional `minHostVersion` is a semantic version such as `0.3.0`. GitHub installation checks this minimum against the running QuailCrate release. Development builds allow installation and log the requirement.
 - Supported permissions are `apps.read`, `apps.launch`, `paths.open`, and `wallpaper.set`. Users approve the permissions when they first enable a locally installed Lua plugin.
-- Use **Open plugin folder** in the plugin settings. Copy the package directory into it, rescan, and enable the plugin. The default is `./data/user-plugins/` (and per-plugin data lives in `./data/plugins/<plugin-id>`).
+- Use **Open plugins folder** in the plugin settings to install a package manually. Copy the package directory into it, rescan, and enable the plugin. The default is `./data/user-plugins/`. Native plugins receive `./data/plugins/<plugin-id>` as their data directory. Lua plugins use [`files.*` for private files](../v2/TOOLS.CN.md).
+
+## Publishing on GitHub
+
+### Release ZIPs
+
+Publish a Release and upload a ZIP containing `manifest.json`, the relative `entry` file, and any locales, assets, or other runtime dependencies. For native packages, compile the Windows x64 DLL and include any companion DLLs or executables. Build and include `web/` when the plugin uses packaged web pages. Lua-only plugins can also use this format.
+
+Put `manifest.json` at the ZIP root or directly inside the single top-level directory. A wrapper directory must be the only top-level item after ignoring `.DS_Store` and `__MACOSX`. Use Windows-compatible paths with no symbolic links or paths that differ only by case. Each archive can contain up to 2,000 files, 128 MiB compressed, and 256 MiB extracted.
+
+Name the uploaded asset `my-plugin.qcplugin.zip` for first priority. The installer next looks for `*-windows-amd64.zip` or `*_windows_amd64.zip`, then accepts any filename if the release has a single uploaded ZIP. If multiple assets tie for first choice, share the exact ZIP download link. You can also upload a sidecar named `<asset>.sha256` with the ZIP's 64-character hexadecimal SHA-256 as the first whitespace-delimited field. The installer verifies it when selecting an asset from Release metadata.
+
+### Source archives for Lua plugins
+
+For a Lua plugin that runs directly from source, keep `manifest.json` and the entry file in the repository root or in a dedicated plugin subdirectory. A repository link tries the latest Release and falls back to the default branch if the latest Release lookup returns 404. For repositories with multiple plugins, share a `/tree/` link that points to the directory containing the intended `manifest.json`.
+
+### Install links
+
+Share one of these links for **Settings → Plugins → Install from GitHub…**. The path examples below follow `https://github.com/owner/repo`.
+
+| Link or suffix | Installs from |
+| --- | --- |
+| `owner/repo` or the repository URL | Latest Release, with default-branch fallback for a Lua source package |
+| `/releases` or `/releases/latest` | Latest Release |
+| `/releases/tag/v1.2.0` | Tagged Release, with tagged source fallback for a Lua package if the Release has no uploaded assets |
+| `/releases/download/v1.2.0/my-plugin.qcplugin.zip` | Exact ZIP asset, with no Release API lookup |
+| `/tree/main` | Source archive for a branch, tag, or commit, with no Release API lookup |
+| `/tree/main/examples/lua-widget` | The named subdirectory in the source archive |
+
+Use `/tree/refs/heads/<ref>` for an explicit branch and `/tree/refs/tags/<ref>` for a tag. Encode any slashes inside a ref as `%2F`, as in `/tree/refs/heads/feature%2Fwidgets/examples/lua-widget`.
 
 ## Interface language
 

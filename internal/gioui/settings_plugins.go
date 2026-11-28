@@ -11,6 +11,7 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/io/semantic"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -83,13 +84,17 @@ func (f settingsFrame) list(gtx layout.Context, list *widget.List, count int, el
 	style.Layout(gtx, count, element)
 }
 
-func (f settingsFrame) plugins(gtx layout.Context) {
+func (f settingsFrame) plugins(gtx layout.Context) int {
 	p, w, h := gtx.Dp, gtx.Constraints.Max.X, gtx.Constraints.Max.Y
+	install := f.model.PluginInstall
 	if f.rescan.Clicked(gtx) {
 		f.emit(SettingsAction{Kind: Rescan})
 	}
 	if f.directory.Clicked(gtx) {
 		f.emit(SettingsAction{Kind: OpenPluginDir})
+	}
+	if f.installPlugin.Clicked(gtx) && !install.Busy {
+		f.emit(SettingsAction{Kind: InstallPluginFromGitHub})
 	}
 	// Process permission drawer toggles before measuring row & table heights so the
 	// expanded drawer never overlaps subsequent rows on the click frame.
@@ -102,40 +107,88 @@ func (f settingsFrame) plugins(gtx layout.Context) {
 			}
 		}
 	}
+	var banner op.CallOp
+	var bannerHeight int
+	if install.Message != "" {
+		bannerText := material.Label(f.theme, 13, install.Message)
+		bannerText.Font.Typeface = f.typeface()
+		bannerText.MaxLines = max(1, min(4, h/3/max(1, gtx.Sp(18))))
+		bannerText.Color = f.p.Text
+		if install.IsError {
+			bannerText.Color = f.p.Warning
+		}
+		ctx := gtx
+		ctx.Constraints = layout.Constraints{Max: image.Pt(max(0, w-p(24)), h)}
+		record := op.Record(gtx.Ops)
+		bannerHeight = bannerText.Layout(ctx).Size.Y + 2*p(8)
+		banner = record.Stop()
+	}
 	head, foot := p(35), p(50)
+	if bannerHeight > 0 {
+		foot += p(8) + bannerHeight
+	}
 	gutter := p(1)
 	dataHeight := 0
+	rowContext := gtx
+	rowContext.Constraints.Max.X -= 2 * gutter
 	for _, plugin := range f.model.Plugins {
-		dataHeight += f.pluginHeight(gtx, plugin)
+		dataHeight += f.pluginHeight(rowContext, plugin)
 	}
 	if len(f.model.Plugins) == 0 {
 		dataHeight = p(70)
 	}
-	tableHeight := min(h-foot, dataHeight+head+2*gutter)
-	if tableHeight <= head {
-		return
-	}
-	r := image.Rect(0, 0, w, tableHeight)
-	f.box(gtx, r, 12, f.p.Surface)
-	rounded := clip.UniformRRect(r.Inset(gutter), p(f.radius(11))).Push(gtx.Ops)
-	settingsArea(gtx, image.Rect(gutter, gutter, w-gutter, gutter+head), f.tableHeader)
-	settingsArea(gtx, image.Rect(gutter, head+gutter, w-gutter, tableHeight-gutter), func(gtx layout.Context) {
-		if len(f.model.Plugins) == 0 {
-			f.label(gtx, settingsBounds(gtx), f.tr("尚未发现插件", "No plugins found"), 14, font.Normal, f.p.Secondary, layout.Center)
-			return
-		}
-		f.list(gtx, &f.pluginsList, len(f.model.Plugins), func(gtx layout.Context, index int) layout.Dimensions {
-			plugin := f.model.Plugins[index]
-			size := image.Pt(gtx.Constraints.Max.X, f.pluginHeight(gtx, plugin))
-			gtx.Constraints = layout.Exact(size)
-			f.pluginRow(gtx, plugin, index)
-			return layout.Dimensions{Size: size}
+	tableHeight := max(0, min(h-foot, dataHeight+head+2*gutter))
+	if tableHeight > head {
+		r := image.Rect(0, 0, w, tableHeight)
+		f.box(gtx, r, 12, f.p.Surface)
+		rounded := clip.UniformRRect(r.Inset(gutter), p(f.radius(11))).Push(gtx.Ops)
+		settingsArea(gtx, image.Rect(gutter, gutter, w-gutter, gutter+head), f.tableHeader)
+		settingsArea(gtx, image.Rect(gutter, head+gutter, w-gutter, tableHeight-gutter), func(gtx layout.Context) {
+			if len(f.model.Plugins) == 0 {
+				f.label(gtx, settingsBounds(gtx), f.tr("尚未发现插件", "No plugins found"), 14, font.Normal, f.p.Secondary, layout.Center)
+				return
+			}
+			f.list(gtx, &f.pluginsList, len(f.model.Plugins), func(gtx layout.Context, index int) layout.Dimensions {
+				plugin := f.model.Plugins[index]
+				size := image.Pt(gtx.Constraints.Max.X, f.pluginHeight(gtx, plugin))
+				gtx.Constraints = layout.Exact(size)
+				f.pluginRow(gtx, plugin, index)
+				return layout.Dimensions{Size: size}
+			})
 		})
-	})
-	rounded.Pop()
+		rounded.Pop()
+	}
 	y := tableHeight + p(12)
-	f.textButton(gtx, image.Rect(w-p(255), y, w-p(158), y+p(32)), &f.rescan, f.tr("重新扫描", "Rescan"), false)
-	f.textButton(gtx, image.Rect(w-p(149), y, w, y+p(32)), &f.directory, f.tr("打开插件目录", "Open plugins folder"), false)
+	if bannerHeight > 0 {
+		bg := f.p.Surface
+		if install.IsError {
+			bg = f.p.WarningBg
+		}
+		f.box(gtx, image.Rect(0, y, w, y+bannerHeight), 7, bg)
+		settingsArea(gtx, image.Rect(p(12), y+p(8), w-p(12), y+bannerHeight-p(8)), func(gtx layout.Context) {
+			banner.Add(gtx.Ops)
+		})
+		y += bannerHeight + p(8)
+	}
+	gap := p(8)
+	rescanWidth, directoryWidth, installWidth := p(96), p(152), p(162)
+	buttonWidth := rescanWidth + directoryWidth + installWidth
+	available := min(buttonWidth, max(0, w-2*gap))
+	if available < buttonWidth {
+		rescanWidth = available * rescanWidth / buttonWidth
+		directoryWidth = available * directoryWidth / buttonWidth
+	}
+	x := w - available - 2*gap
+	f.textButton(gtx, image.Rect(x, y, x+rescanWidth, y+p(32)), &f.rescan, f.tr("重新扫描", "Rescan"), false)
+	x += rescanWidth + gap
+	f.textButton(gtx, image.Rect(x, y, x+directoryWidth, y+p(32)), &f.directory, f.tr("打开插件目录", "Open plugins folder"), false)
+	x += directoryWidth + gap
+	installLabel := f.tr("从 GitHub 安装…", "Install from GitHub…")
+	if install.Busy && !install.Uninstalling {
+		installLabel = f.tr("正在安装…", "Installing…")
+	}
+	f.textButtonWithDescription(gtx, image.Rect(x, y, w, y+p(32)), &f.installPlugin, installLabel, installLabel, true, install.Busy)
+	return min(h, tableHeight+foot)
 }
 
 func (f settingsFrame) tableHeader(gtx layout.Context) {
@@ -214,7 +267,11 @@ func (f settingsFrame) pluginDrawerHeight(gtx layout.Context, plugin SettingsPlu
 	return p(30) + len(plugin.RequestedPermissions)*p(44) + p(12)
 }
 
-func (f settingsFrame) pluginHeight(gtx layout.Context, plugin SettingsPlugin) int {
+func (p SettingsPlugin) hasMetadataRow() bool {
+	return p.SourceRepo != "" || p.HomepageURL != "" || p.CanUninstall
+}
+
+func (f settingsFrame) pluginHeaderHeight(gtx layout.Context, plugin SettingsPlugin) int {
 	p := gtx.Dp
 	height := p(61)
 	if tableColumns(gtx).compact {
@@ -223,9 +280,16 @@ func (f settingsFrame) pluginHeight(gtx layout.Context, plugin SettingsPlugin) i
 	if plugin.FullSystemAccess {
 		height += p(24)
 	}
-	height += f.pluginDrawerHeight(gtx, plugin)
+	if plugin.hasMetadataRow() {
+		height += p(36)
+	}
+	return height
+}
+
+func (f settingsFrame) pluginHeight(gtx layout.Context, plugin SettingsPlugin) int {
+	height := f.pluginHeaderHeight(gtx, plugin) + f.pluginDrawerHeight(gtx, plugin)
 	if plugin.Detail != "" {
-		height += p(56)
+		height += gtx.Dp(56)
 	}
 	return height
 }
@@ -257,7 +321,7 @@ func (f settingsFrame) pluginRow(gtx layout.Context, plugin SettingsPlugin, inde
 	if cols.compact {
 		right = cols.toggle - p(4)
 	}
-	f.label(gtx, image.Rect(p(57), p(7), right, p(33)), plugin.Name, 14, font.SemiBold, f.p.Text, layout.W)
+	f.pluginTitle(gtx, image.Rect(p(57), p(7), right, p(33)), plugin)
 	f.label(gtx, image.Rect(p(57), p(31), right, p(53)), plugin.Description, 12.5, font.Normal, f.p.Secondary, layout.W)
 	statusInk := f.p.Secondary
 	switch plugin.State {
@@ -364,14 +428,11 @@ func (f settingsFrame) pluginRow(gtx layout.Context, plugin SettingsPlugin, inde
 		settingsFill(gtx, image.Rect(at-p(6), mid.Y-p(6), at+p(6), mid.Y+p(6)), 6, knob)
 	})
 
+	drawerTop := f.pluginHeaderHeight(gtx, plugin)
+	if plugin.hasMetadataRow() {
+		f.pluginMetadataRow(gtx, plugin, buttons, drawerTop-p(36))
+	}
 	if expanded {
-		drawerTop := p(61)
-		if cols.compact {
-			drawerTop = p(77)
-		}
-		if plugin.FullSystemAccess {
-			drawerTop += p(24)
-		}
 		drawerH := f.pluginDrawerHeight(gtx, plugin) - p(12)
 		drawerLeft := p(57)
 		if cols.compact {
@@ -452,6 +513,59 @@ func (f settingsFrame) pluginRow(gtx layout.Context, plugin SettingsPlugin, inde
 		f.button(gtx, image.Rect(detail.Max.X-copyWidth, detail.Min.Y, detail.Max.X-p(3), detail.Max.Y), &buttons.copy, f.tr("复制诊断信息", "Copy diagnostics"), func(gtx layout.Context) {
 			f.label(gtx, settingsBounds(gtx), f.tr("复制诊断信息", "Copy diagnostics"), 12, font.SemiBold, f.p.Warning, layout.Center)
 		})
+	}
+}
+
+func (f settingsFrame) pluginTitle(gtx layout.Context, r image.Rectangle, plugin SettingsPlugin) {
+	if plugin.Version == "" {
+		f.label(gtx, r, plugin.Name, 14, font.SemiBold, f.p.Text, layout.W)
+		return
+	}
+	settingsArea(gtx, r, func(gtx layout.Context) {
+		versionWidth := gtx.Constraints.Max.X / 2
+		layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			row := layout.Flex{Alignment: layout.Baseline, Gap: gtx.Dp(8)}
+			return row.Layout(gtx,
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Min.X = 0
+					name := material.Label(f.theme, 14, plugin.Name)
+					name.Color, name.Font.Typeface, name.Font.Weight, name.MaxLines = f.p.Text, f.typeface(), font.SemiBold, 1
+					return name.Layout(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Max.X = min(gtx.Constraints.Max.X, versionWidth)
+					version := material.Label(f.theme, 12, "v"+plugin.Version)
+					version.Color, version.Font.Typeface, version.MaxLines = f.p.Secondary, f.typeface(), 1
+					return version.Layout(gtx)
+				}),
+			)
+		})
+	})
+}
+
+func (f settingsFrame) pluginMetadataRow(gtx layout.Context, plugin SettingsPlugin, buttons *settingsPluginButtons, y int) {
+	p := gtx.Dp
+	right := gtx.Constraints.Max.X - p(16)
+	if plugin.CanUninstall {
+		busy := f.model.PluginInstall.Busy
+		if buttons.uninstall.Clicked(gtx) && !busy {
+			f.emit(SettingsAction{Kind: UninstallPlugin, PluginID: plugin.ID})
+		}
+		title := f.tr("卸载", "Uninstall")
+		f.textButtonWithDescription(gtx, image.Rect(right-p(96), y, right, y+p(28)), &buttons.uninstall,
+			title, plugin.Name+" · "+title, false, busy)
+		right -= p(104)
+	}
+	if plugin.HomepageURL != "" {
+		if buttons.homepage.Clicked(gtx) {
+			f.emit(SettingsAction{Kind: OpenPluginHomepage, PluginID: plugin.ID})
+		}
+		f.textButtonWithDescription(gtx, image.Rect(right-p(105), y, right, y+p(28)), &buttons.homepage,
+			f.tr("主页", "Homepage"), plugin.Name+" · "+f.tr("打开主页", "Open homepage"), false, false)
+		right -= p(113)
+	}
+	if plugin.SourceRepo != "" && right > p(57) {
+		f.label(gtx, image.Rect(p(57), y, right, y+p(28)), plugin.SourceRepo, 12, font.Medium, f.p.Secondary, layout.W)
 	}
 }
 

@@ -42,11 +42,15 @@ Download the latest release for **64-bit Windows 11** from [GitHub Releases](htt
 4. **Arrange Your Desktop** — Choose **Edit desktop layout** from the tray menu (or **Settings → Desktop**) to drag and resize widgets freely, then click **Finish editing** to lock positions in place.
 5. **Open Plugin Apps** — Plugins with dedicated windows (such as **Music**) appear under **Settings → Plugins → Apps** and in the tray menu.
 
-## Installing Plugins
+## Installing Third-Party Plugins
 
-1. Open **Settings → Plugins** and click **Open plugin folder** (`./data/user-plugins/`).
-2. Copy a plugin folder containing `manifest.json` into that directory.
-3. Click **Rescan** in **Settings → Plugins** and enable the plugin.
+1. Open **Settings → Plugins** and click **Install from GitHub…**.
+2. Paste a repository URL or `owner/repo`, a Release page or ZIP download link, or a `/tree/` link to a Lua plugin. Repository links use the latest release when available and can fall back to the default branch for Lua plugins. Native DLL plugins and plugins with built web assets use Release ZIPs.
+3. After installation, find the plugin, version, and source repository in the list. New installations start disabled. Switch the plugin on when you are ready to review its permissions and enable it.
+
+To upgrade or reinstall, use **Install from GitHub…** with the desired version. QuailCrate matches the package by its plugin ID and keeps plugin data, saved state, and widget layouts. Installing a lower version asks for confirmation. Review any newly requested permissions when re-enabling the plugin.
+
+For manual installation, click **Open plugins folder**, copy the folder containing `manifest.json` into `./data/user-plugins/`, and click **Rescan**. To remove a third-party plugin from either installation method, expand its row and choose **Uninstall**. Confirming deletes the plugin files, local data, saved state, permission grants, and widget layouts.
 
 ### Plugin Types & Security
 
