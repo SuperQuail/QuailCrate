@@ -66,4 +66,4 @@ local data = {
 
 随包「桌面月历」（Lua）导出 `quailcrate.calendar.month`。其他插件可在清单中声明所需服务并调用其 `describe` 方法，传入可选的 `args.date`（`YYYY-MM-DD`）。省略日期时使用本地当天日期，成功回执的 `value` 含日期 `date` 和当月天数 `days`。
 
-[原生音乐插件](../../plugins/music/native/music_plugin.cpp) · [发布与原生测试脚本](../../scripts/build.ps1)
+[原生音乐插件](https://github.com/SuperQuail/quailcrate-music) · [发布与原生测试脚本](../../scripts/build.ps1)

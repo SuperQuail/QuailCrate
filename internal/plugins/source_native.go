@@ -12,11 +12,7 @@ import (
 	"sync"
 )
 
-const (
-	MusicDLLID   = "quailcrate.music"
-	musicDLL     = "music.dll"
-	nativeRunner = "QuailCrateNative.exe"
-)
+const nativeRunner = "QuailCrateNative.exe"
 
 type bundledSourceDLLSpec struct {
 	dir    string
@@ -25,9 +21,7 @@ type bundledSourceDLLSpec struct {
 	source string
 }
 
-var bundledSourceDLLs = []bundledSourceDLLSpec{
-	{dir: "music", id: MusicDLLID, dll: musicDLL, source: filepath.Join("native", "music_plugin.cpp")},
-}
+var bundledSourceDLLs []bundledSourceDLLSpec
 
 func matchBundledSourceDLL(directory, id, entry string) (bundledSourceDLLSpec, bool) {
 	for _, spec := range bundledSourceDLLs {

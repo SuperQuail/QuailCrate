@@ -102,7 +102,7 @@ func TestSettingsPluginsPermissionDrawerVisual(t *testing.T) {
 				GrantedPermissions:   []string{"apps.read", "apps.launch"},
 			},
 			{
-				ID: "quailcrate.music", Name: "音乐",
+				ID: "example.audio-player", Name: "音乐",
 				Description: "支持歌单管理、Bilibili 扫码登录与 BV/分P/收藏夹音频播放，附带桌面迷你播放器。",
 				Icon: "music", Runtime: "lua", State: "running", Status: "运行中", Enabled: true, CanToggle: true,
 				RequestedPermissions: []string{"network.http", "audio.play"},
@@ -153,7 +153,7 @@ func TestSettingsPluginsPermissionDrawerVisual(t *testing.T) {
 	}
 
 	render("plugins-collapsed.png")
-	view.pluginButtons["quailcrate.music"].permToggle.Click()
+	view.pluginButtons["example.audio-player"].permToggle.Click()
 	render("plugins-expanded.png")
 }
 

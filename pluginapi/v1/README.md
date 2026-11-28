@@ -2,7 +2,7 @@
 
 [Simplified Chinese](README.CN.md)
 
-All packages share the same request protocol, widget templates, and host actions. Start with the [Lua counter](../../examples/lua-widget/) or the [bundled native music plugin](../../plugins/music/). The [protocol types](types.go) define the UTF-8 JSON fields.
+All packages share the same request protocol, widget templates, and host actions. Use the Lua counter or the standalone native Music plugin as an example. The protocol types define the UTF-8 JSON fields. [Lua counter](../../examples/lua-widget/) · [Native Music plugin](https://github.com/SuperQuail/quailcrate-music) · [Protocol types](types.go)
 
 ## Package format
 

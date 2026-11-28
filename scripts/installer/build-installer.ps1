@@ -22,7 +22,7 @@ foreach ($part in $versionParts) {
     if ([decimal]$part -gt 65535) { throw 'Windows version components must fit in 16 bits.' }
 }
 $fileVersion = ($versionParts -join '.') + '.0'
-foreach ($required in 'QuailCrate.exe', 'QuailCrateNative.exe', 'plugins\music\music.dll') {
+foreach ($required in 'QuailCrate.exe', 'QuailCrateNative.exe', 'plugins\launcher\plugin.lua') {
     if (-not [IO.File]::Exists((Join-Path $stagePath $required))) { throw "Missing staged file: $required" }
 }
 if ((Test-Path -LiteralPath (Join-Path $stagePath 'data')) -or

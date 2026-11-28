@@ -70,5 +70,5 @@ func currentBundle(requested string) (string, *plugins.SourceNative, error) {
 		return "", nil, err
 	}
 	_, file, _, _ := runtime.Caller(0)
-	return launchBundle(requested, exe, file, musicDLLSHA256)
+	return launchBundle(requested, exe, file, plugins.ReleaseRunnerPin())
 }
