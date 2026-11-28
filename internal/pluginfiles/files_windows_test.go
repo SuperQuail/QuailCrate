@@ -72,7 +72,7 @@ func TestPrivateFilesAndLimits(t *testing.T) {
 		t.Fatalf("failed write changed original file: %v %v", got, err)
 	}
 	// Seed the fixture directly so the test need not copy sixteen MiB through the API.
-	private := filepath.Join(profile, "plugin-data", ownerKey("a"))
+	private := s.PrivateDataDir("a")
 	f, err := os.Create(filepath.Join(private, "quota-fixture"))
 	if err != nil {
 		t.Fatal(err)
@@ -156,6 +156,20 @@ func TestDirectoryGrantPersistenceAndRevocation(t *testing.T) {
 	}
 	if _, err := s.Execute(ctx, "music", "files.read", a); !errors.Is(err, ErrDenied) {
 		t.Fatal("revocation not persisted")
+	}
+	legacyGrant, err := s.Grant(ctx, "music", external, "write")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved, err := s.db.Setting(ctx, "directories."+ownerKey("music"), ""); err != nil || !strings.Contains(saved, legacyGrant.ID) {
+		t.Fatalf("legacy directory grant key: %q, %v", saved, err)
+	}
+	if err := s.db.PurgePlugin(ctx, "music"); err != nil {
+		t.Fatal(err)
+	}
+	a.Root = legacyGrant.ID
+	if _, err := s.Execute(ctx, "music", "files.read", a); !errors.Is(err, ErrDenied) {
+		t.Fatal("purge left directory grant available")
 	}
 }
 

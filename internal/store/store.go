@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -25,6 +26,17 @@ type NativeTrust struct {
 	Exists    bool
 	SHA256    string
 	TrustedAt int64
+}
+
+type InstalledPlugin struct {
+	ID               string
+	SourceURL        string
+	RepoOwner        string
+	RepoName         string
+	RefOrTag         string
+	AssetName        string
+	InstalledVersion string
+	InstalledAt      int64
 }
 
 type Widget struct {
@@ -84,8 +96,19 @@ CREATE TABLE IF NOT EXISTS widgets (
 );
 CREATE TABLE IF NOT EXISTS native_plugin_trust (
 	id TEXT PRIMARY KEY, sha256 TEXT NOT NULL, trusted_at INTEGER NOT NULL
+);`
+	const migrateV5ToV6 = `
+CREATE TABLE IF NOT EXISTS installed_plugins (
+	id TEXT PRIMARY KEY,
+	source_url TEXT NOT NULL,
+	repo_owner TEXT NOT NULL DEFAULT '',
+	repo_name TEXT NOT NULL DEFAULT '',
+	ref_or_tag TEXT NOT NULL DEFAULT '',
+	asset_name TEXT NOT NULL DEFAULT '',
+	installed_version TEXT NOT NULL,
+	installed_at INTEGER NOT NULL
 );
-PRAGMA user_version = 5;`
+PRAGMA user_version = 6;`
 	if _, err := s.db.Exec("PRAGMA busy_timeout = 3000"); err != nil {
 		return err
 	}
@@ -93,10 +116,10 @@ PRAGMA user_version = 5;`
 	if err := s.db.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
 		return err
 	}
-	if version == 5 {
+	if version == 6 {
 		return nil
 	}
-	if version >= 1 && version <= 4 {
+	if version >= 1 && version <= 5 {
 		tx, err := s.db.Begin()
 		if err != nil {
 			return err
@@ -128,11 +151,15 @@ CREATE TABLE IF NOT EXISTS native_plugin_trust (
 				return err
 			}
 		}
-		const migrateV4ToV5 = `
+		if version <= 4 {
+			const migrateV4ToV5 = `
 ALTER TABLE widgets DROP COLUMN hover_expand;
-ALTER TABLE widgets ADD COLUMN always_on_top INTEGER NOT NULL DEFAULT 0;
-PRAGMA user_version = 5;`
-		if _, err := tx.Exec(migrateV4ToV5); err != nil {
+ALTER TABLE widgets ADD COLUMN always_on_top INTEGER NOT NULL DEFAULT 0;`
+			if _, err := tx.Exec(migrateV4ToV5); err != nil {
+				return err
+			}
+		}
+		if _, err := tx.Exec(migrateV5ToV6); err != nil {
 			return err
 		}
 		return tx.Commit()
@@ -145,7 +172,7 @@ PRAGMA user_version = 5;`
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.Exec(schema); err != nil {
+	if _, err := tx.Exec(schema + migrateV5ToV6); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -166,6 +193,11 @@ func (s *Store) SetSetting(ctx context.Context, key, value string) error {
 	_, err := s.db.ExecContext(ctx, `INSERT INTO settings(key, value) VALUES(?, ?)
 		ON CONFLICT(key) DO UPDATE SET value = excluded.value`, key, value)
 	return err
+}
+
+// DirectoryGrantsSettingKey identifies the persisted user-picked directories for a plugin.
+func DirectoryGrantsSettingKey(id string) string {
+	return fmt.Sprintf("directories.%x", sha256.Sum256([]byte(id)))
 }
 
 func (s *Store) Preference(ctx context.Context, id string) (Preference, error) {
@@ -216,6 +248,105 @@ func (s *Store) SetNativeTrust(ctx context.Context, id, digest string, trustedAt
 func (s *Store) DeleteNativeTrust(ctx context.Context, id string) error {
 	_, err := s.db.ExecContext(ctx, "DELETE FROM native_plugin_trust WHERE id = ?", id)
 	return err
+}
+
+const installedPluginColumns = `id, source_url, repo_owner, repo_name, ref_or_tag, asset_name, installed_version, installed_at`
+
+func (s *Store) InstalledPlugin(ctx context.Context, id string) (InstalledPlugin, error) {
+	meta, err := scanInstalledPlugin(s.db.QueryRowContext(ctx,
+		"SELECT "+installedPluginColumns+" FROM installed_plugins WHERE id = ?", id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return InstalledPlugin{}, nil
+	}
+	return meta, err
+}
+
+func (s *Store) AllInstalledPlugins(ctx context.Context) (map[string]InstalledPlugin, error) {
+	rows, err := s.db.QueryContext(ctx, "SELECT "+installedPluginColumns+" FROM installed_plugins")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	installed := make(map[string]InstalledPlugin)
+	for rows.Next() {
+		meta, err := scanInstalledPlugin(rows)
+		if err != nil {
+			return nil, err
+		}
+		installed[meta.ID] = meta
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return installed, nil
+}
+
+func scanInstalledPlugin(row interface{ Scan(...any) error }) (InstalledPlugin, error) {
+	var meta InstalledPlugin
+	err := row.Scan(&meta.ID, &meta.SourceURL, &meta.RepoOwner, &meta.RepoName, &meta.RefOrTag,
+		&meta.AssetName, &meta.InstalledVersion, &meta.InstalledAt)
+	return meta, err
+}
+
+func (s *Store) SetInstalledPlugin(ctx context.Context, meta InstalledPlugin) error {
+	return s.setInstalledPlugin(ctx, meta, false)
+}
+
+// SetNewInstalledPlugin clears stale authorizations for a plugin whose package is absent.
+func (s *Store) SetNewInstalledPlugin(ctx context.Context, meta InstalledPlugin) error {
+	return s.setInstalledPlugin(ctx, meta, true)
+}
+
+func (s *Store) setInstalledPlugin(ctx context.Context, meta InstalledPlugin, fresh bool) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if fresh {
+		if _, err := tx.ExecContext(ctx, "DELETE FROM native_plugin_trust WHERE id = ?", meta.ID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, "DELETE FROM plugin_preferences WHERE id = ?", meta.ID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, "DELETE FROM settings WHERE key = ?", DirectoryGrantsSettingKey(meta.ID)); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO installed_plugins (`+installedPluginColumns+`)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET source_url = excluded.source_url, repo_owner = excluded.repo_owner,
+			repo_name = excluded.repo_name, ref_or_tag = excluded.ref_or_tag, asset_name = excluded.asset_name,
+			installed_version = excluded.installed_version, installed_at = excluded.installed_at`,
+		meta.ID, meta.SourceURL, meta.RepoOwner, meta.RepoName, meta.RefOrTag,
+		meta.AssetName, meta.InstalledVersion, meta.InstalledAt); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Store) PurgePlugin(ctx context.Context, id string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, "DELETE FROM settings WHERE key = ?", DirectoryGrantsSettingKey(id)); err != nil {
+		return err
+	}
+	for _, query := range []string{
+		"DELETE FROM installed_plugins WHERE id = ?",
+		"DELETE FROM native_plugin_trust WHERE id = ?",
+		"DELETE FROM plugin_preferences WHERE id = ?",
+		"DELETE FROM plugin_state WHERE id = ?",
+		"DELETE FROM widgets WHERE plugin = ?",
+	} {
+		if _, err := tx.ExecContext(ctx, query, id); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func (s *Store) Snapshot(ctx context.Context, plugin string) (Snapshot, error) {

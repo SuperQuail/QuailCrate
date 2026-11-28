@@ -19,7 +19,17 @@ import (
 )
 
 type Plugin = gioui.SettingsPlugin
+type PluginInstall = gioui.SettingsPluginInstall
 type Command = gioui.SettingsCommand
+
+func (u *UI) SetPluginInstall(status PluginInstall) {
+	u.post(func() {
+		if u.pluginInstall != status {
+			u.pluginInstall = status
+			u.refreshSettings()
+		}
+	})
+}
 
 func (u *UI) SetSettingsDefinition(def *v2.Settings) {
 	u.post(func() {
@@ -170,6 +180,7 @@ func (u *UI) settingsModel() *gioui.SettingsModel {
 		Appearance:        cfg,
 		AppearanceTargets: u.appearanceTargets(),
 		Plugins:           u.plugins,
+		PluginInstall:     u.pluginInstall,
 		Commands:          u.listedCommands(),
 		AppTabs:           u.appSnapshot.Tabs,
 		Update:            u.settingsUpdateModel(),
@@ -466,6 +477,24 @@ func (u *UI) handleGioSettingsAction(a gioui.SettingsAction) {
 	case gioui.OpenPluginDir:
 		if u.cb.OpenPluginDir != nil {
 			u.cb.OpenPluginDir()
+		}
+	case gioui.InstallPluginFromGitHub:
+		if !u.pluginInstall.Busy && u.cb.InstallPlugin != nil {
+			u.cb.InstallPlugin()
+		}
+	case gioui.UninstallPlugin:
+		for _, plugin := range u.plugins {
+			if plugin.ID == a.PluginID && plugin.CanUninstall && !u.pluginInstall.Busy && u.cb.UninstallPlugin != nil {
+				u.cb.UninstallPlugin(plugin.ID)
+				return
+			}
+		}
+	case gioui.OpenPluginHomepage:
+		for _, plugin := range u.plugins {
+			if plugin.ID == a.PluginID && plugin.HomepageURL != "" && u.cb.OpenPluginHomepage != nil {
+				u.cb.OpenPluginHomepage(plugin.ID)
+				return
+			}
 		}
 	case gioui.CopyDiagnostics:
 		if err := copySettingsDiagnostics(u.dialogOwner(), a.Value); err != nil {

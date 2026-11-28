@@ -28,10 +28,18 @@ type SettingsModel struct {
 	Appearance        theme.Config
 	AppearanceTargets []SettingsAppearanceTarget
 	Plugins           []SettingsPlugin
+	PluginInstall     SettingsPluginInstall
 	Commands          []SettingsCommand
 	AppTabs           []pluginapps.Tab
 	Update            SettingsUpdate
 	Autostart         SettingsAutostart
+}
+
+type SettingsPluginInstall struct {
+	Busy         bool
+	Uninstalling bool
+	Message      string
+	IsError      bool
 }
 
 // SettingsUpdate mirrors update.Snapshot plus UI-managed transient action state.
@@ -104,7 +112,9 @@ func (m *SettingsModel) hasAppsMenu() bool {
 
 type SettingsPlugin struct {
 	ID, Name, Description, Icon, Runtime, State, Status, Detail string
+	Version, SourceRepo, HomepageURL                            string
 	Enabled, CanToggle, Bundled, FullSystemAccess               bool
+	CanUninstall                                                bool
 	RequestedPermissions                                        []string
 	GrantedPermissions                                          []string
 }
@@ -117,29 +127,32 @@ type SettingsCommand struct {
 type SettingsActionKind string
 
 const (
-	ChangeLanguage       SettingsActionKind = "language"
-	ChangeHotkey         SettingsActionKind = "hotkey"
-	PreviewAppearance    SettingsActionKind = "preview-appearance"
-	SaveAppearance       SettingsActionKind = "save-appearance"
-	ToggleEditing        SettingsActionKind = "editing"
-	TogglePlugin         SettingsActionKind = "toggle"
-	RevokePermission     SettingsActionKind = "revoke-permission"
-	RunCommand           SettingsActionKind = "command"
-	OpenAppTab           SettingsActionKind = "open-app-tab"
-	ToggleAppsExpanded   SettingsActionKind = "toggle-apps-expanded"
-	OpenAppsMenu         SettingsActionKind = "open-apps-menu"
-	Rescan               SettingsActionKind = "rescan"
-	OpenPluginDir        SettingsActionKind = "open-directory"
-	CopyDiagnostics      SettingsActionKind = "copy-diagnostics"
-	ToggleAutoUpdate     SettingsActionKind = "toggle-auto-update"
-	CheckUpdateNow       SettingsActionKind = "check-update-now"
-	RestartUpdate        SettingsActionKind = "restart-update"
-	OpenUpdateRelease    SettingsActionKind = "open-update-release"
-	ToggleAutostart      SettingsActionKind = "toggle-autostart"
-	RefreshAutostart     SettingsActionKind = "refresh-autostart"
-	WindowMinimize       SettingsActionKind = "window-minimize"
-	WindowToggleMaximize SettingsActionKind = "window-toggle-maximize"
-	WindowClose          SettingsActionKind = "window-close"
+	ChangeLanguage          SettingsActionKind = "language"
+	ChangeHotkey            SettingsActionKind = "hotkey"
+	PreviewAppearance       SettingsActionKind = "preview-appearance"
+	SaveAppearance          SettingsActionKind = "save-appearance"
+	ToggleEditing           SettingsActionKind = "editing"
+	TogglePlugin            SettingsActionKind = "toggle"
+	RevokePermission        SettingsActionKind = "revoke-permission"
+	RunCommand              SettingsActionKind = "command"
+	OpenAppTab              SettingsActionKind = "open-app-tab"
+	ToggleAppsExpanded      SettingsActionKind = "toggle-apps-expanded"
+	OpenAppsMenu            SettingsActionKind = "open-apps-menu"
+	Rescan                  SettingsActionKind = "rescan"
+	OpenPluginDir           SettingsActionKind = "open-directory"
+	InstallPluginFromGitHub SettingsActionKind = "install-plugin-from-github"
+	UninstallPlugin         SettingsActionKind = "uninstall-plugin"
+	OpenPluginHomepage      SettingsActionKind = "open-plugin-homepage"
+	CopyDiagnostics         SettingsActionKind = "copy-diagnostics"
+	ToggleAutoUpdate        SettingsActionKind = "toggle-auto-update"
+	CheckUpdateNow          SettingsActionKind = "check-update-now"
+	RestartUpdate           SettingsActionKind = "restart-update"
+	OpenUpdateRelease       SettingsActionKind = "open-update-release"
+	ToggleAutostart         SettingsActionKind = "toggle-autostart"
+	RefreshAutostart        SettingsActionKind = "refresh-autostart"
+	WindowMinimize          SettingsActionKind = "window-minimize"
+	WindowToggleMaximize    SettingsActionKind = "window-toggle-maximize"
+	WindowClose             SettingsActionKind = "window-close"
 )
 
 type SettingsAction struct {

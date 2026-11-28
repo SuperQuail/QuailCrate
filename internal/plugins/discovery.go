@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -16,6 +17,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"quailcrate/internal/update"
 	v1 "quailcrate/pluginapi/v1"
 )
 
@@ -51,6 +53,17 @@ var (
 // Discover reads each package directory. Invalid packages are retained for diagnostics.
 func Discover(bundledRoot, userRoot string, trustedDLL map[string]string) []Package {
 	return (Catalog{TrustedDLLs: trustedDLL}).Discover(bundledRoot, userRoot)
+}
+
+// InspectUserPackage applies discovery checks to a single third-party package.
+// A failed inspection can still return parsed manifest fields for diagnostics.
+func InspectUserPackage(dir string) (Package, error) {
+	path, err := filepath.Abs(dir)
+	if err != nil {
+		return Package{Dir: dir, Err: err}, err
+	}
+	pkg := (Catalog{}).readPackage(filepath.Dir(path), filepath.Base(path), false)
+	return pkg, pkg.Err
 }
 
 func (catalog Catalog) Discover(bundledRoot, userRoot string) []Package {
@@ -262,6 +275,15 @@ func ValidateManifest(manifest v1.Manifest) error {
 	}
 	if !validDescription(manifest.Description) {
 		return errors.New("invalid plugin description")
+	}
+	if manifest.Homepage != "" {
+		homepage, err := url.Parse(manifest.Homepage)
+		if err != nil || len(manifest.Homepage) > 512 || homepage.Scheme != "https" || homepage.Hostname() == "" || homepage.User != nil {
+			return errors.New("plugin homepage must be an HTTPS URL without credentials and at most 512 bytes")
+		}
+	}
+	if manifest.MinHostVersion != "" && (!versionPattern.MatchString(manifest.MinHostVersion) || !update.ValidVersion(manifest.MinHostVersion)) {
+		return errors.New("minHostVersion must be a semantic version")
 	}
 	for locale, localized := range manifest.Localizations {
 		if !localePattern.MatchString(locale) ||

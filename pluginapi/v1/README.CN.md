@@ -22,11 +22,42 @@
 }
 ```
 
-- ID 使用小写字母、数字、点、连字符或下划线。各段以字母或数字开头，整个 ID 保持唯一。版本使用语义化版本。
+- ID 使用小写字母、数字、点、连字符或下划线。各段以字母或数字开头，整个 ID 保持唯一。`quailcrate` 和 `quailcrate.*` 保留给随包插件。`version` 采用语义化版本，同一插件的各个版本使用相同 ID。
 - `contributes` 支持 `search`、`commands`、`widgets` 和 `appTabs`。在清单中声明插件通过 `init` 返回的贡献类别。
 - 可选的 `icon` 用于插件列表，支持 `search`、`folder`、`calendar`、`image` 和 `code`。其他值使用通用插件图标。
+- 可选的 `homepage` 为不超过 512 字节的 HTTPS 地址。插件列表据此提供「主页」按钮。
+- 可选的 `minHostVersion` 为最低宿主版本，采用语义化版本格式，例如 `0.3.0`。从 GitHub 安装时会检查当前正式版是否满足要求。开发构建默认放行，并将版本要求写入日志。
 - `permissions` 支持 `apps.read`、`apps.launch`、`paths.open` 和 `wallpaper.set`。用户安装的 Lua 插件在首次启用时授权。
-- 从托盘打开插件设置中的「打开插件目录」，把插件包目录复制到该目录，再重新扫描并启用。默认目录为当前运行目录下的 `data/user-plugins/`（各插件的数据目录为 `data/plugins/<插件ID>`）。
+- 从托盘打开插件设置中的「打开插件目录」，把插件包目录复制到该目录，再重新扫描并启用。默认安装目录为 `./data/user-plugins/`。原生插件的数据目录为 `./data/plugins/<插件ID>`，Lua 插件通过 [`files.*` 访问私有文件](../v2/TOOLS.CN.md)。
+
+## 在 GitHub 发布插件
+
+### Release ZIP 附件
+
+发布 GitHub Release，并上传包含 `manifest.json`、`entry` 指定的相对入口文件、语言文件、资源和运行依赖的 ZIP。原生插件需编译 Windows x64 DLL，并打包所需的伴生 DLL 或可执行文件。使用包内网页的插件需构建并打包 `web/`。纯 Lua 插件也可以用此格式发布。
+
+将 `manifest.json` 放在 ZIP 根目录或唯一的顶层文件夹内。忽略 `.DS_Store` 和 `__MACOSX` 后，包裹文件夹应是唯一的顶层项目。采用 Windows 兼容路径，避免符号链接或仅大小写不同的路径。每个 ZIP 最多包含 2,000 个文件，压缩包上限为 128 MiB，解压上限为 256 MiB。
+
+优先使用 `my-plugin.qcplugin.zip` 作为附件名，其次为 `*-windows-amd64.zip` 或 `*_windows_amd64.zip`。若 Release 只上传了一个 ZIP，则可使用任意文件名。若多个附件的最高优先级相同，请分享目标 ZIP 的下载直链。可以同时上传名为 `<附件名>.sha256` 的校验文件，将 ZIP 的 SHA-256 摘要写在以空白分隔的首个字段，使用 64 个十六进制字符。安装器通过 Release 元数据选择附件时会校验该摘要。
+
+### Lua 插件源码归档
+
+可直接运行的 Lua 插件可将 `manifest.json` 和入口文件放在仓库根目录或专用子目录。通过仓库链接安装时，先查询最新 Release，收到 404 后再从默认分支的源码归档安装。仓库内含多个插件时，请分享指向目标 `manifest.json` 所在目录的 `/tree/` 链接。
+
+### 安装链接
+
+用户可以在 **设置 → 插件 → 从 GitHub 安装…** 中输入下列链接。表中的路径示例接在 `https://github.com/owner/repo` 后面。
+
+| 链接或路径后缀 | 安装来源 |
+| --- | --- |
+| `owner/repo` 或仓库主页 | 最新 Release，纯 Lua 插件可回退到默认分支源码 |
+| `/releases` 或 `/releases/latest` | 最新 Release |
+| `/releases/tag/v1.2.0` | 指定 Release，未上传任何附件时纯 Lua 插件可回退到对应标签的源码 |
+| `/releases/download/v1.2.0/my-plugin.qcplugin.zip` | 指定 ZIP 附件，无需查询 Release API |
+| `/tree/main` | 分支、标签或提交的源码归档，无需查询 Release API |
+| `/tree/main/examples/lua-widget` | 源码归档内的指定子目录 |
+
+可以用 `/tree/refs/heads/<ref>` 指定分支，或用 `/tree/refs/tags/<ref>` 指定标签。将引用名称内的斜杠编码为 `%2F`，例如 `/tree/refs/heads/feature%2Fwidgets/examples/lua-widget`。
 
 ## 界面语言
 

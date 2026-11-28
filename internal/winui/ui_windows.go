@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"time"
 	"unsafe"
- 
+
 	"quailcrate/internal/autostart"
 	"quailcrate/internal/gioui"
 	"quailcrate/internal/pluginapps"
@@ -24,35 +24,38 @@ import (
 )
 
 type Callbacks struct {
-	ActivateTray      func(TrayEntry) bool
-	PluginApps        pluginapps.Service
-	Ready             func()
-	Search            func(query string) uint64
-	OpenResult        func(Result)
-	ResultAction      func(Result, ResultMenuAction)
-	ChangeHotkey      func(string)
-	ChooseLauncher    func(string)
-	ChangeLanguage    func(string)
-	PreviewAppearance func(apptheme.Config)
-	SaveAppearance    func(apptheme.Config)
+	ActivateTray           func(TrayEntry) bool
+	PluginApps             pluginapps.Service
+	Ready                  func()
+	Search                 func(query string) uint64
+	OpenResult             func(Result)
+	ResultAction           func(Result, ResultMenuAction)
+	ChangeHotkey           func(string)
+	ChooseLauncher         func(string)
+	ChangeLanguage         func(string)
+	PreviewAppearance      func(apptheme.Config)
+	SaveAppearance         func(apptheme.Config)
 	SaveAppBounds          func(map[string]AppWindowBounds)
 	TogglePlugin           func(id string, enabled bool)
 	RevokePluginPermission func(id, permission string)
 	Rescan                 func()
-	OpenPluginDir     func()
-	WidgetEvent       func(pluginID string, event v1.Event)
-	MoveWidget        func(pluginID, instanceID string, generation uint64, layout Layout)
-	Command           func(pluginID, commandID string)
-	SystemChanged     func()
-	UpdateSnapshot       func() update.Snapshot
-	SubscribeUpdates     func(func(update.Snapshot)) func()
-	SetAutoUpdate        func(context.Context, bool) error
-	CheckUpdateNow       func() bool
-	RequestUpdateRestart func() bool
-	AutostartStatus      func() (autostart.Status, error)
-	SetAutostart         func(bool) error
-	TrayExitRequested func()
-	Exit              func()
+	OpenPluginDir          func()
+	InstallPlugin          func()
+	UninstallPlugin        func(string)
+	OpenPluginHomepage     func(string)
+	WidgetEvent            func(pluginID string, event v1.Event)
+	MoveWidget             func(pluginID, instanceID string, generation uint64, layout Layout)
+	Command                func(pluginID, commandID string)
+	SystemChanged          func()
+	UpdateSnapshot         func() update.Snapshot
+	SubscribeUpdates       func(func(update.Snapshot)) func()
+	SetAutoUpdate          func(context.Context, bool) error
+	CheckUpdateNow         func() bool
+	RequestUpdateRestart   func() bool
+	AutostartStatus        func() (autostart.Status, error)
+	SetAutostart           func(bool) error
+	TrayExitRequested      func()
+	Exit                   func()
 }
 
 type Result struct {
@@ -117,6 +120,7 @@ type UI struct {
 	resultIndex, resultScroll                                             int
 	launcherDPI                                                           int32
 	plugins                                                               []Plugin
+	pluginInstall                                                         PluginInstall
 	commands                                                              []Command
 	appSnapshot                                                           pluginapps.Snapshot
 	appWindows                                                            map[string]*pluginAppWindow

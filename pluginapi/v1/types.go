@@ -29,6 +29,8 @@ type Manifest struct {
 	Description    string                       `json:"description,omitempty"`
 	Icon           string                       `json:"icon,omitempty"`
 	Version        string                       `json:"version"`
+	Homepage       string                       `json:"homepage,omitempty"`
+	MinHostVersion string                       `json:"minHostVersion,omitempty"`
 	Runtime        string                       `json:"runtime"`
 	Entry          string                       `json:"entry"`
 	HostAPIVersion int                          `json:"hostApiVersion"`

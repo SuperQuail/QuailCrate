@@ -104,15 +104,9 @@ func (f settingsFrame) declaredCards(gtx layout.Context, section v2.SettingsSect
 					settingsArea(gtx, image.Rect(0, titleH, w, titleH+p(240)), func(gtx layout.Context) { d = f.appearanceCard(gtx, card.Type) })
 					cardH = titleH + d.Size.Y
 				case "plugins":
-					settingsArea(gtx, image.Rect(0, titleH, w, titleH+usable), f.plugins)
-					rows := 0
-					for _, plugin := range f.model.Plugins {
-						rows += f.pluginHeight(gtx, plugin)
-					}
-					if rows == 0 {
-						rows = p(70)
-					}
-					cardH = titleH + min(usable, p(87)+rows)
+					settingsArea(gtx, image.Rect(0, titleH, w, titleH+usable), func(gtx layout.Context) {
+						cardH = titleH + f.plugins(gtx)
+					})
 				}
 			default:
 				return f.appearanceCard(gtx, card.Type)

@@ -6,6 +6,8 @@
 
 Windows x64 的 Lua 和 DLL 插件共用此协议。清单同时设置 `schemaVersion: 2` 和 `hostApiVersion: 2`，提供控件树时另加 `uiVersion: 2`。v1 包可以继续用原协议安装，DLL 的 C ABI 仍为 1。[UI 节点与公共构件](UI.CN.md) · [C ABI 头文件](../v1/quailcrate_plugin.h)
 
+v1 和 v2 插件使用相同的 GitHub ZIP 打包格式及安装链接。[在 GitHub 发布插件](../v1/README.CN.md#在-github-发布插件)
+
 ## 从搜索保存到分组
 
 1. 复制 `examples/notes` 整个目录到设置打开的用户插件目录，重新扫描并启用。工作区和发布包都提供此示例。

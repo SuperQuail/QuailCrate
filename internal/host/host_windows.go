@@ -48,6 +48,7 @@ type Host struct {
 	bundledDir, userDir string
 	cacheDir            string
 	pluginCatalog       plugins.Catalog
+	releaseVersion      string
 	updates             hostUpdates
 	autostart           hostAutostart
 
@@ -55,6 +56,7 @@ type Host struct {
 	mu                 sync.Mutex
 	records            map[string]*record
 	issues             []winui.Plugin
+	pluginInstall      pluginInstallStatus
 	catalog            map[string]winshell.Entry
 	apps               []v1.App
 	detectedTools      []winshell.DetectedTool
@@ -136,24 +138,27 @@ func isThirdPartyNative(pkg plugins.Package) bool {
 func (h *Host) Run() error {
 	defer h.cancel()
 	h.ui = winui.New(winui.Callbacks{
-		ActivateTray:   h.activateTray,
-		PluginApps:     h,
+		ActivateTray: h.activateTray,
+		PluginApps:   h,
 		Ready: func() {
 			if h.updates.service != nil {
 				h.updates.service.Start()
 			}
 			go h.start()
 		},
-		Search:         h.search,
-		OpenResult:     func(r winui.Result) { go h.activateResult(r, nil) },
-		ResultAction:   func(r winui.Result, a winui.ResultMenuAction) { go h.activateResult(r, &a) },
-		ChangeHotkey:   func(text string) { go h.changeHotkey(text) },
-		ChooseLauncher: func(id string) { go h.chooseLauncher(id) },
-		ChangeLanguage: func(preference string) { go h.changeLanguage(preference) },
-		SaveAppearance: func(cfg theme.Config) { go h.saveAppearance(cfg) },
+		Search:                 h.search,
+		OpenResult:             func(r winui.Result) { go h.activateResult(r, nil) },
+		ResultAction:           func(r winui.Result, a winui.ResultMenuAction) { go h.activateResult(r, &a) },
+		ChangeHotkey:           func(text string) { go h.changeHotkey(text) },
+		ChooseLauncher:         func(id string) { go h.chooseLauncher(id) },
+		ChangeLanguage:         func(preference string) { go h.changeLanguage(preference) },
+		SaveAppearance:         func(cfg theme.Config) { go h.saveAppearance(cfg) },
 		SaveAppBounds:          func(bounds map[string]winui.AppWindowBounds) { go h.saveAppBounds(bounds) },
 		TogglePlugin:           func(id string, enabled bool) { go h.toggle(id, enabled) },
 		RevokePluginPermission: func(id, permission string) { go h.revokePermissionFromSettings(id, permission) },
+		InstallPlugin:          h.PromptInstallFromGitHub,
+		UninstallPlugin:        func(id string) { go h.UninstallPlugin(id) },
+		OpenPluginHomepage:     func(id string) { go h.openPluginHomepage(id) },
 		Rescan:                 func() { go h.scan() },
 		OpenPluginDir: func() {
 			go func() {
@@ -166,7 +171,7 @@ func (h *Host) Run() error {
 		MoveWidget: func(id, widgetID string, generation uint64, layout winui.Layout) {
 			go h.move(id, widgetID, generation, layout)
 		},
-		Command:     func(id, command string) { go h.command(id, command, nil) },
+		Command: func(id, command string) { go h.command(id, command, nil) },
 		SystemChanged: func() {
 			select {
 			case h.dateSignal <- struct{}{}:
@@ -181,11 +186,13 @@ func (h *Host) Run() error {
 		AutostartStatus:      h.AutostartStatus,
 		SetAutostart:         h.SetAutostart,
 		TrayExitRequested:    func() { h.updates.trayExit.Store(true) },
-		Exit:              h.cancel,
+		Exit:                 h.cancel,
 	})
 	err := h.ui.Run()
 	h.cancel()
+	h.lifecycle.Lock()
 	h.stopAll()
+	h.lifecycle.Unlock()
 	if err == nil {
 		h.installUpdateOnExit()
 	}
@@ -375,6 +382,15 @@ func (h *Host) scanLocked() {
 		return
 	}
 	found := dependencyOrder(h.pluginCatalog.Discover(h.bundledDir, h.userDir))
+	installed, err := h.db.AllInstalledPlugins(h.ctx)
+	if err != nil {
+		h.log.Warn("read plugin installation sources", "error", diagnostic.English(err))
+	}
+	locale := h.currentLocale()
+	claims := make(map[string]int)
+	for _, pkg := range found {
+		claims[pkg.Manifest.ID]++
+	}
 	present := make(map[string]bool)
 	var issues []winui.Plugin
 	for index, pkg := range found {
@@ -384,10 +400,17 @@ func (h *Host) scanLocked() {
 			if name == "" {
 				name = filepath.Base(pkg.Dir)
 			}
-			issues = append(issues, winui.Plugin{
+			issue := winui.Plugin{
 				ID: fmt.Sprintf("invalid:%d", index), Name: name, Runtime: pkg.Manifest.Runtime,
 				State: "failed", Status: "Load failed", Detail: diagnostic.English(pkg.Err),
-			})
+			}
+			if claims[id] == 1 && manageableUserPackage(pkg) {
+				issue.ID = id
+				issue.Name = pkg.Manifest.DisplayName(locale)
+				issue.Version = pkg.Manifest.Version
+				issue.CanUninstall = true
+			}
+			issues = append(issues, issue)
 			h.log.Warn("reject plugin package", "plugin", id, "error", diagnostic.English(pkg.Err))
 			continue
 		}
@@ -404,9 +427,17 @@ func (h *Host) scanLocked() {
 			}}
 			h.records[id] = rec
 		}
-		rec.info.Name = pkg.Manifest.DisplayName(h.locale)
-		rec.info.Description = pkg.Manifest.DisplayDescription(h.locale)
+		rec.info.Name = pkg.Manifest.DisplayName(locale)
+		rec.info.Description = pkg.Manifest.DisplayDescription(locale)
 		rec.info.Icon = pkg.Manifest.Icon
+		rec.info.Runtime = pkg.Manifest.Runtime
+		rec.info.Version = pkg.Manifest.Version
+		rec.info.SourceRepo = ""
+		if source := installed[id]; !pkg.Bundled && source.RepoOwner != "" && source.RepoName != "" {
+			rec.info.SourceRepo = source.RepoOwner + "/" + source.RepoName
+		}
+		rec.info.HomepageURL = pkg.Manifest.Homepage
+		rec.info.CanUninstall = manageableUserPackage(pkg)
 		rec.info.Bundled = pkg.Bundled
 		rec.info.FullSystemAccess = isThirdPartyNative(pkg)
 		active := rec.generation != 0
@@ -435,10 +466,10 @@ func (h *Host) scanLocked() {
 			if enabled {
 				grants = requested
 			}
-		} else if pkg.Bundled && !sameGrants(grants, requested) {
+		} else if !sameGrants(grants, requested) && (pkg.Bundled || pkg.Manifest.Runtime == "lua" && installed[id].ID != "") {
 			defaults, listed := defaultPermissions[id]
-			useDefaults := enabled && pkg.Manifest.Runtime == "lua" && listed && sameGrants(defaults, requested)
-			// A bundled update can drop obsolete grants without changing the user's enable switch.
+			useDefaults := pkg.Bundled && enabled && pkg.Manifest.Runtime == "lua" && listed && sameGrants(defaults, requested)
+			// An update can drop obsolete grants without changing the user's enable switch.
 			alreadyGranted := !slices.ContainsFunc(requested, func(g string) bool { return !slices.Contains(grants, g) })
 			if useDefaults || alreadyGranted {
 				grants = requested
@@ -459,7 +490,9 @@ func (h *Host) scanLocked() {
 				rec.info.RequestedPermissions = slices.Clone(requested)
 				rec.info.GrantedPermissions = slices.Clone(grants)
 				h.mu.Unlock()
-				h.setStatus(rec, false, "authorization", "Native plugin binary has changed or has not been trusted. Enable it again to review full system access.")
+				h.setStatus(rec, false, "authorization", text(locale,
+					"The native plugin binary is new or has changed. Enable the plugin again to review full system access.",
+					"原生插件的二进制文件尚未受信任或已发生变化。请重新启用插件以查看完全系统权限提示。"))
 				continue
 			}
 		}
@@ -468,7 +501,7 @@ func (h *Host) scanLocked() {
 			rec.info.RequestedPermissions = slices.Clone(requested)
 			rec.info.GrantedPermissions = slices.Clone(grants)
 			h.mu.Unlock()
-			h.setStatus(rec, false, "authorization", "The plugin's requested permissions have changed.")
+			h.setStatus(rec, false, "authorization", text(locale, "The plugin's requested permissions have changed.", "插件请求的权限已发生变化。"))
 			continue
 		}
 		h.mu.Lock()
@@ -667,7 +700,7 @@ func (h *Host) toggle(id string, enabled bool) {
 		if enabled && !pkg.Bundled && !preference.Exists && len(grants) == 0 {
 			answer := make(chan bool, 1)
 			h.confirm(text(locale, "Enable "+name, "启用「"+name+"」"),
-				text(locale, "This local plugin does not request extra permissions.", "此插件由本地目录加载，未声明额外权限。"),
+				text(locale, "This third-party plugin does not request extra permissions.", "此第三方插件未声明额外权限。"),
 				func(ok bool) { answer <- ok })
 			select {
 			case approved := <-answer:
@@ -871,7 +904,7 @@ func (h *Host) clearPluginLocked(rec *record) *toolInstance {
 	return tools
 }
 
-func (h *Host) disable(rec *record) {
+func (h *Host) disable(rec *record) error {
 	rec.blocked = false
 	id := rec.info.ID
 	h.mu.Lock()
@@ -883,12 +916,14 @@ func (h *Host) disable(rec *record) {
 	h.setStatus(rec, false, "stopping", "")
 	ctx, cancel := context.WithTimeout(h.ctx, 2*time.Second)
 	defer cancel()
-	if err := h.manager.Disable(ctx, id); err != nil && h.ctx.Err() == nil {
+	err := h.manager.Disable(ctx, id)
+	if err != nil && h.ctx.Err() == nil {
 		h.setStatus(rec, false, "stopping", diagnostic.English(err))
 		h.log.Warn("disable plugin", "plugin", id, "error", diagnostic.English(err))
-		return
+		return err
 	}
 	h.setStatus(rec, false, "disabled", "")
+	return err
 }
 
 func (h *Host) setStatus(rec *record, enabled bool, state, detail string) {
@@ -960,6 +995,10 @@ func (h *Host) publish() {
 		commands = append(commands, winui.Command{PluginID: cmd.PluginID, ID: cmd.ID, Title: cmd.Title, Location: cmd.Location})
 	}
 	h.ui.SetPlugins(status)
+	h.ui.SetPluginInstall(winui.PluginInstall{
+		Busy: h.pluginInstall.busy, Uninstalling: h.pluginInstall.uninstalling,
+		Message: text(h.locale, h.pluginInstall.english, h.pluginInstall.chinese), IsError: h.pluginInstall.failed,
+	})
 	h.ui.SetCommands(commands)
 	h.ui.SetWidgets(widgets)
 }

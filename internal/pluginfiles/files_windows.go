@@ -26,9 +26,10 @@ import (
 )
 
 const (
-	maxFile      = 512 << 10
-	maxEntries   = 2048
-	privateQuota = 16 << 20
+	maxFile              = 512 << 10
+	maxEntries           = 2048
+	privateQuota         = 16 << 20
+	privateDirectoryName = "plugin-data"
 )
 
 var ErrDenied = errors.New("directory access denied")
@@ -42,6 +43,14 @@ type Service struct {
 
 func New(db *store.Store, profile, bundle string) *Service {
 	return &Service{db: db, profile: profile, bundle: bundle}
+}
+
+// PrivateDataDir waits for current file operations and returns the plugin's private directory.
+// The host calls it after stopping the plugin when removing its files.
+func (s *Service) PrivateDataDir(id string) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return filepath.Join(s.profile, privateDirectoryName, ownerKey(id))
 }
 
 type Directory struct {
@@ -61,7 +70,7 @@ func ownerKey(id string) string {
 }
 
 func (s *Service) grants(ctx context.Context, id string) ([]grant, error) {
-	value, err := s.db.Setting(ctx, "directories."+ownerKey(id), "[]")
+	value, err := s.db.Setting(ctx, store.DirectoryGrantsSettingKey(id), "[]")
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +84,7 @@ func (s *Service) save(ctx context.Context, id string, list []grant) error {
 	if err != nil {
 		return err
 	}
-	return s.db.SetSetting(ctx, "directories."+ownerKey(id), string(value))
+	return s.db.SetSetting(ctx, store.DirectoryGrantsSettingKey(id), string(value))
 }
 
 func inside(parent, name string) bool {
@@ -264,7 +273,7 @@ func (s *Service) open(ctx context.Context, owner, ref string, write bool) (*os.
 			return nil, err
 		}
 		defer profile.Close()
-		data, err := privateChild(profile, "plugin-data")
+		data, err := privateChild(profile, privateDirectoryName)
 		if err != nil {
 			return nil, err
 		}
